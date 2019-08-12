@@ -18,15 +18,13 @@ import os
 import gc
 import numpy as np
 import pandas as pd
-from tqdm import tqdm_notebook
 import joblib
 
 from lightgbm import LGBMClassifier
 import optuna
 
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import TimeSeriesSplit, KFold, cross_val_score
-from sklearn import preprocessing
+from sklearn.model_selection import KFold, cross_val_score
 
 from ieee import utils
 from ieee import fe_browser
