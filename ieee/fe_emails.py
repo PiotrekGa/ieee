@@ -1,4 +1,4 @@
-from emails_dict import labels
+from .emails_dict import labels
 
 
 def proton(train, test):
