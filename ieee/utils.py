@@ -1,4 +1,6 @@
 import numpy as np
+import pandas as pd
+import gc
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -30,3 +32,24 @@ def reduce_mem_usage(df, verbose=True):
         print('Mem. usage decreased to {:5.2f} Mb ({:.1f}% reduction)'.format(end_mem,
                                                                               100 * (start_mem - end_mem) / start_mem))
     return df
+
+
+def import_data(data_path):
+
+    train_transaction = pd.read_csv(data_path + 'train_transaction.csv', index_col='TransactionID')
+    test_transaction = pd.read_csv(data_path + 'test_transaction.csv', index_col='TransactionID')
+    train_identity = pd.read_csv(data_path + 'train_identity.csv', index_col='TransactionID')
+    test_identity = pd.read_csv(data_path + 'test_identity.csv', index_col='TransactionID')
+    sample_submission = pd.read_csv(data_path + 'sample_submission.csv', index_col='TransactionID')
+
+    train = train_transaction.merge(train_identity, how='left', left_index=True, right_index=True)
+    del train_transaction, train_identity
+    gc.collect()
+    test = test_transaction.merge(test_identity, how='left', left_index=True, right_index=True)
+    del test_transaction, test_identity
+    gc.collect()
+
+    print('training set shape:', train.shape)
+    print('test set shape:', test.shape)
+
+    return reduce_mem_usage(train), reduce_mem_usage(test), sample_submission
