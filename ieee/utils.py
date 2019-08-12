@@ -38,10 +38,10 @@ def reduce_mem_usage(df, verbose=True):
 
 def import_data(data_path):
 
-    if os.path.isfile(data_path + 'train.pkl') & os.path.isfile(data_path + 'test.pkl'):
+    if os.path.isfile('train.pkl') & os.path.isfile('test.pkl'):
 
-        train = joblib.load(data_path + 'train.pkl')
-        test = joblib.load(data_path + 'test.pkl')
+        train = joblib.load('train.pkl')
+        test = joblib.load('test.pkl')
 
     else:
 
@@ -63,8 +63,8 @@ def import_data(data_path):
         train = reduce_mem_usage(train)
         test = reduce_mem_usage(test)
 
-        joblib.dump(train, data_path + 'train.pkl')
-        joblib.dump(test, data_path + 'test.pkl')
+        joblib.dump(train, 'train.pkl')
+        joblib.dump(test, 'test.pkl')
 
     sample_submission = pd.read_csv(data_path + 'sample_submission.csv', index_col='TransactionID')
 
