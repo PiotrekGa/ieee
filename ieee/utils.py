@@ -53,3 +53,17 @@ def import_data(data_path):
     print('test set shape:', test.shape)
 
     return reduce_mem_usage(train), reduce_mem_usage(test), sample_submission
+
+
+def drop_columns(train, test):
+    cols_to_drop = ['V300', 'V309', 'V111', 'C3', 'V124', 'V106', 'V125', 'V315', 'V134', 'V102', 'V123', 'V316',
+                    'V113',
+                    'V136', 'V305', 'V110', 'V299', 'V289', 'V286', 'V318', 'V103', 'V304', 'V116', 'V29', 'V284',
+                    'V293',
+                    'V137', 'V295', 'V301', 'V104', 'V311', 'V115', 'V109', 'V119', 'V321', 'V114', 'V133', 'V122',
+                    'V319',
+                    'V105', 'V112', 'V118', 'V117', 'V121', 'V108', 'V135', 'V320', 'V303', 'V297', 'V120']
+
+    print('{} features are going to be dropped for being useless'.format(len(cols_to_drop)))
+
+    return train.drop(cols_to_drop, axis=1), test.drop(cols_to_drop, axis=1)
