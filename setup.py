@@ -4,7 +4,7 @@ setup(
     name='ieee',
     author='Piotr Gabryś',
     author_email='piotrek.gabrys@gmail.com',
-    version='0.0.2',
+    version='0.0.3',
     packages=['ieee',],
     install_requires=[
         'scikit-learn',
