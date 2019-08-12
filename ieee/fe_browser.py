@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def fe_browser_latest(train, test):
+def latest(train, test):
     a = np.zeros(train.shape[0])
     train["latest_browser"] = a
     a = np.zeros(test.shape[0])
