@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import gc
+import joblib
+import os
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -36,23 +38,37 @@ def reduce_mem_usage(df, verbose=True):
 
 def import_data(data_path):
 
-    train_transaction = pd.read_csv(data_path + 'train_transaction.csv', index_col='TransactionID')
-    test_transaction = pd.read_csv(data_path + 'test_transaction.csv', index_col='TransactionID')
-    train_identity = pd.read_csv(data_path + 'train_identity.csv', index_col='TransactionID')
-    test_identity = pd.read_csv(data_path + 'test_identity.csv', index_col='TransactionID')
+    if os.path.isfile(data_path + 'train.pkl') & os.path.isfile(data_path + 'test.pkl'):
+
+        train = joblib.load(data_path + 'train.pkl')
+        test = joblib.load(data_path + 'test.pkl')
+
+    else:
+
+        train_transaction = pd.read_csv(data_path + 'train_transaction.csv', index_col='TransactionID')
+        test_transaction = pd.read_csv(data_path + 'test_transaction.csv', index_col='TransactionID')
+        train_identity = pd.read_csv(data_path + 'train_identity.csv', index_col='TransactionID')
+        test_identity = pd.read_csv(data_path + 'test_identity.csv', index_col='TransactionID')
+
+        train = train_transaction.merge(train_identity, how='left', left_index=True, right_index=True)
+        del train_transaction, train_identity
+        gc.collect()
+        test = test_transaction.merge(test_identity, how='left', left_index=True, right_index=True)
+        del test_transaction, test_identity
+        gc.collect()
+
+        print('training set shape:', train.shape)
+        print('test set shape:', test.shape)
+
+        train = reduce_mem_usage(train)
+        test = reduce_mem_usage(test)
+
+        joblib.dump(train, data_path + 'train.pkl')
+        joblib.dump(test, data_path + 'test.pkl')
+
     sample_submission = pd.read_csv(data_path + 'sample_submission.csv', index_col='TransactionID')
 
-    train = train_transaction.merge(train_identity, how='left', left_index=True, right_index=True)
-    del train_transaction, train_identity
-    gc.collect()
-    test = test_transaction.merge(test_identity, how='left', left_index=True, right_index=True)
-    del test_transaction, test_identity
-    gc.collect()
-
-    print('training set shape:', train.shape)
-    print('test set shape:', test.shape)
-
-    return reduce_mem_usage(train), reduce_mem_usage(test), sample_submission
+    return train, test, sample_submission
 
 
 def drop_columns(train, test):
