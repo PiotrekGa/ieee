@@ -90,7 +90,7 @@ X_test = test.copy()
 del train, test
 
 #fill in mean for floats
-X_train, X_test = prepro(X_train, X_test)
+X_train, X_test = prepro.prepro(X_train, X_test)
 
 # %% [markdown]
 # ### Model and training
@@ -147,7 +147,7 @@ print(study.best_params)
 n_fold = 8
 folds = KFold(n_splits=n_fold, shuffle=True)
 
-for train_index, valid_index in tqdm_notebook(folds.split(X_train)):
+for train_index, valid_index in folds.split(X_train):
     model.set_params(**study.best_params)
     X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
     y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
