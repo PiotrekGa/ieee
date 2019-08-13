@@ -40,6 +40,7 @@ from codes import fe_date
 from codes import fe_relatives
 from codes import fe_categorical
 from codes import prepro
+from codes import fe_users
 
 # %%
 DATA_PATH = '../input/'
@@ -54,6 +55,9 @@ train, test, sample_submission = utils.import_data(DATA_PATH)
 # ### Some Feature Engineering
 #
 # drop columns, count encoding, aggregation, fillna
+
+# %%
+train, test = fe_users.users_stats(train, test)
 
 # %%
 train, test = utils.drop_columns(train, test)
@@ -188,5 +192,3 @@ print(params)
 
 # %%
 submission.to_csv('submission_{}.csv'.format(str(model_score)))
-
-# %%
