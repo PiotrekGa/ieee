@@ -26,17 +26,17 @@ import optuna
 from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import KFold, cross_val_score
 
-import utils
-import fe_browser
-import fe_emails
-import fe_cards
-import fe_date
-import fe_relatives
-import fe_categorical
-import prepro
+from codes import utils
+from codes import fe_browser
+from codes import fe_emails
+from codes import fe_cards
+from codes import fe_date
+from codes import fe_relatives
+from codes import fe_categorical
+from codes import prepro
 
 # %%
-DATA_PATH = 'input/'
+DATA_PATH = '../input/'
 
 
 # %% {"_cell_guid": "79c7e3d0-c299-4dcb-8224-4455121ee9b0", "_uuid": "d629ff2d2480ee46fbb7e2d37f6b5fab8052498a"}
