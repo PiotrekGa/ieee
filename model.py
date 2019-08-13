@@ -14,6 +14,12 @@
 # ---
 
 # %%
+# # !rm -r ieee
+# # !rm -r codes
+# # !git clone https://github.com/PiotrekGa/ieee.git
+# # !mv ieee/codes .
+
+# %%
 import os
 import gc
 import numpy as np
@@ -37,6 +43,7 @@ from codes import prepro
 
 # %%
 DATA_PATH = '../input/'
+SEARCH_PARAMS = False
 
 
 # %% {"_cell_guid": "79c7e3d0-c299-4dcb-8224-4455121ee9b0", "_uuid": "d629ff2d2480ee46fbb7e2d37f6b5fab8052498a"}
@@ -94,7 +101,7 @@ X_train, X_test = prepro.prepro(X_train, X_test)
 # ### Model and training
 
 # %%
-submission=sample_submission.copy()
+submission = sample_submission.copy()
 submission['isFraud'] = 0
 
 # %%
@@ -128,25 +135,42 @@ def objective(trial):
     
     model.set_params(**params)
 
-    return - np.mean(cross_val_score(model, X_train, y_train, cv=4, scoring='roc_auc'))
+    return - np.mean(cross_val_score(model, X_train, y_train, cv=8, scoring='roc_auc'))
 
 
 # %%
-if os.path.isfile('study.pkl'):
-    study = joblib.load('study.pkl')
+if SEARCH_PARAMS:
+
+    if os.path.isfile('study.pkl'):
+        study = joblib.load('study.pkl')
+    else:
+        study = optuna.create_study()
+    study.optimize(objective, timeout=60*60*8)
+    
+    params = study.best_params
+
 else:
-    study = optuna.create_study()
-study.optimize(objective, timeout=60*60*8)
+    
+    params = {'num_leaves': 116, 
+              'max_depth': 78, 
+              'n_estimators': 273, 
+              'subsample_for_bin': 87043, 
+              'min_child_samples': 1000, 
+              'reg_alpha': 0.9028845416568297, 
+              'colsample_bytree': 0.6967754069828626, 
+              'learning_rate': 0.0442974258725275}
 
 # %%
-print(study.best_params)
+model.set_params(**params)
+model_score = np.round(np.mean(cross_val_score(model, X_train, y_train, cv=8, scoring='roc_auc')),4)
+print(model_score)
+print(params)
 
 # %%
 n_fold = 8
 folds = KFold(n_splits=n_fold, shuffle=True)
 
 for train_index, valid_index in folds.split(X_train):
-    model.set_params(**study.best_params)
     X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
     y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
     model.fit(X_train_,y_train_)
@@ -160,4 +184,4 @@ for train_index, valid_index in folds.split(X_train):
     del pred
 
 # %%
-submission.to_csv('submission.csv')
+submission.to_csv('submission_{}.csv'.format(str(model_score)))
