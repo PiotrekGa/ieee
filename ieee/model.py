@@ -136,7 +136,7 @@ if os.path.isfile('study.pkl'):
     study = joblib.load('study.pkl')
 else:
     study = optuna.create_study()
-study.optimize(objective, timeout=60*60*5.5)
+study.optimize(objective, timeout=60*60*8)
 
 # %%
 print(study.best_params)
