@@ -30,7 +30,7 @@ from lightgbm import LGBMClassifier
 import optuna
 
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import KFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 
 from codes import utils
 from codes import fe_browser
@@ -117,9 +117,9 @@ def objective(trial):
     max_depth = trial.suggest_int('max_depth', 2, 100) 
     n_estimators = trial.suggest_int('n_estimators', 10, 500) 
     subsample_for_bin = trial.suggest_int('subsample_for_bin', 2000, 300_000) 
-    min_child_samples = trial.suggest_int('min_child_samples', 20, 1000) 
+    min_child_samples = trial.suggest_int('min_child_samples', 20, 10000) 
     reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 1.0) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.6, 1.0) 
+    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.5, 1.0) 
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-0)   
 
     params = {
@@ -161,16 +161,14 @@ else:
               'learning_rate': 0.0442974258725275}
 
 # %%
+model = LGBMClassifier(metric='auc')
 model.set_params(**params)
-model_score = np.round(np.mean(cross_val_score(model, X_train, y_train, cv=8, scoring='roc_auc')),4)
-print(model_score)
-print(params)
 
-# %%
 n_fold = 8
-folds = KFold(n_splits=n_fold, shuffle=True)
+folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
 
-for train_index, valid_index in folds.split(X_train):
+model_scores = []
+for train_index, valid_index in folds.split(X_train, y_train):
     X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
     y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
     model.fit(X_train_,y_train_)
@@ -178,10 +176,17 @@ for train_index, valid_index in folds.split(X_train):
     pred=model.predict_proba(X_test)[:,1]
     val=model.predict_proba(X_valid)[:,1]
     del X_valid
-    print('ROC accuracy: {}'.format(roc_auc_score(y_valid, val)))
+    model_scores.append(roc_auc_score(y_valid, val))
+    print('ROC accuracy: {}'.format(model_scores[-1]))
     del val, y_valid
     submission['isFraud'] = submission['isFraud'] + pred / n_fold
     del pred
+    
+model_score = np.round(np.mean(model_scores),4)
+print(model_score)
+print(params)
 
 # %%
 submission.to_csv('submission_{}.csv'.format(str(model_score)))
+
+# %%
