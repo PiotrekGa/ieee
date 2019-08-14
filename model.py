@@ -25,6 +25,7 @@ import gc
 import numpy as np
 import pandas as pd
 import joblib
+from datetime import datetime
 
 from lightgbm import LGBMClassifier
 import optuna
@@ -129,6 +130,7 @@ def cross_val_score2(model, X_train, y_train, n_fold):
         print('ROC accuracy: {}'.format(model_scores[-1]))
         del val, y_valid
     
+    print('')
     return np.mean(model_scores)
 
 
@@ -163,8 +165,26 @@ def objective(trial):
 
 
 # %%
-study = optuna.create_study()
-study.optimize(objective, n_trials=5)
+if SEARCH_PARAMS:
+
+    if os.path.isfile('study.pkl'):
+        study = joblib.load('study.pkl')
+    else:
+        study = optuna.create_study()
+    study.optimize(objective, n_trials=5)
+    
+    params = study.best_params
+
+else:
+    
+    params = {'num_leaves': 302,
+             'max_depth': 157,
+             'n_estimators': 1200,
+             'subsample_for_bin': 290858,
+             'min_child_samples': 79,
+             'reg_alpha': 1.0919573524807885,
+             'colsample_bytree': 0.5653288564015742,
+             'learning_rate': 0.028565794309535042}
 
 
 # %%
@@ -206,6 +226,8 @@ if SEARCH_PARAMS:
         study = optuna.create_study()
     study.optimize(objective, timeout=60*60*9)
     
+    joblib.dump(study, 'study.pkl')
+    
     params = study.best_params
 
 else:
@@ -246,6 +268,5 @@ print(model_score)
 print(params)
 
 # %%
-submission.to_csv('submission_{}.csv'.format(str(model_score)))
-
-# %%
+timestamp = str(int(datetime.timestamp(datetime.now())))
+submission.to_csv('{}_submission_{}.csv'.format(timestamp, str(model_score)))
