@@ -113,16 +113,71 @@ model = LGBMClassifier(metric='auc')
 
 
 # %%
+def cross_val_score2(model, X_train, y_train, n_fold):
+    
+    folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
+    
+    model_scores = []
+    for train_index, valid_index in folds.split(X_train, y_train):
+        X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
+        y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
+        model.fit(X_train_,y_train_)
+        del X_train_,y_train_
+        val = model.predict_proba(X_valid)[:,1]
+        del X_valid
+        model_scores.append(roc_auc_score(y_valid, val))
+        print('ROC accuracy: {}'.format(model_scores[-1]))
+        del val, y_valid
+    
+    return np.mean(model_scores)
+
+
+# %%
 def objective(trial):
     
     joblib.dump(study, 'study.pkl')
     
-    num_leaves = trial.suggest_int('num_leaves', 2, 200) 
-    max_depth = trial.suggest_int('max_depth', 2, 100) 
-    n_estimators = trial.suggest_int('n_estimators', 10, 500) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 2000, 300_000) 
+    num_leaves = trial.suggest_int('num_leaves', 110, 120) 
+    max_depth = trial.suggest_int('max_depth', 70, 80) 
+    n_estimators = trial.suggest_int('n_estimators', 270, 280) 
+    subsample_for_bin = trial.suggest_int('subsample_for_bin', 87000, 88044) 
+    min_child_samples = trial.suggest_int('min_child_samples', 1000, 1101) 
+    reg_alpha = trial.suggest_uniform('reg_alpha', 0.902, 0.953) 
+    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.6567, 0.75678) 
+    learning_rate = trial.suggest_loguniform('learning_rate', 0.04, 0.05)   
+
+    params = {
+        'num_leaves': num_leaves,
+        'max_depth': max_depth,
+        'n_estimators': n_estimators,
+        'subsample_for_bin': subsample_for_bin,
+        'min_child_samples': min_child_samples,
+        'reg_alpha': reg_alpha,
+        'colsample_bytree': colsample_bytree,
+        'learning_rate': learning_rate
+    }
+    
+    model.set_params(**params)
+
+    return - cross_val_score2(model, X_train, y_train, 8)
+
+
+# %%
+study = optuna.create_study()
+study.optimize(objective, n_trials=5)
+
+
+# %%
+def objective(trial):
+    
+    joblib.dump(study, 'study.pkl')
+    
+    num_leaves = trial.suggest_int('num_leaves', 2, 500) 
+    max_depth = trial.suggest_int('max_depth', 2, 300) 
+    n_estimators = trial.suggest_int('n_estimators', 100, 2000) 
+    subsample_for_bin = trial.suggest_int('subsample_for_bin', 100_000, 500_000) 
     min_child_samples = trial.suggest_int('min_child_samples', 20, 10000) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 1.0) 
+    reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 2.0) 
     colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.5, 1.0) 
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-0)   
 
@@ -139,7 +194,7 @@ def objective(trial):
     
     model.set_params(**params)
 
-    return - np.mean(cross_val_score(model, X_train, y_train, cv=8, scoring='roc_auc'))
+    return - cross_val_score2(model, X_train, y_train, 8)
 
 
 # %%
@@ -149,20 +204,20 @@ if SEARCH_PARAMS:
         study = joblib.load('study.pkl')
     else:
         study = optuna.create_study()
-    study.optimize(objective, timeout=60*60*8)
+    study.optimize(objective, timeout=60*60*9)
     
     params = study.best_params
 
 else:
     
-    params = {'num_leaves': 116, 
-              'max_depth': 78, 
-              'n_estimators': 273, 
-              'subsample_for_bin': 87043, 
-              'min_child_samples': 1000, 
-              'reg_alpha': 0.9028845416568297, 
-              'colsample_bytree': 0.6967754069828626, 
-              'learning_rate': 0.0442974258725275}
+    params = {'num_leaves': 302,
+             'max_depth': 157,
+             'n_estimators': 966,
+             'subsample_for_bin': 290858,
+             'min_child_samples': 79,
+             'reg_alpha': 0.9919573524807885,
+             'colsample_bytree': 0.5653288564015742,
+             'learning_rate': 0.028565794309535042}
 
 # %%
 model = LGBMClassifier(metric='auc')
