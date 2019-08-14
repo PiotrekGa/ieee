@@ -137,14 +137,14 @@ def objective(trial):
     
     joblib.dump(study, 'study.pkl')
     
-    num_leaves = trial.suggest_int('num_leaves', 110, 120) 
-    max_depth = trial.suggest_int('max_depth', 70, 80) 
-    n_estimators = trial.suggest_int('n_estimators', 270, 280) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 87000, 88044) 
-    min_child_samples = trial.suggest_int('min_child_samples', 1000, 1101) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 0.902, 0.953) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.6567, 0.75678) 
-    learning_rate = trial.suggest_loguniform('learning_rate', 0.04, 0.05)   
+    num_leaves = trial.suggest_int('num_leaves', 300, 310) 
+    max_depth = trial.suggest_int('max_depth', 150, 160) 
+    n_estimators = trial.suggest_int('n_estimators', 1150, 1250) 
+    subsample_for_bin = trial.suggest_int('subsample_for_bin', 285858, 295858) 
+    min_child_samples = trial.suggest_int('min_child_samples', 75, 85) 
+    reg_alpha = trial.suggest_uniform('reg_alpha', 1.0, 1.1) 
+    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.56, 0.57) 
+    learning_rate = trial.suggest_loguniform('learning_rate', 0.02, 0.03)   
 
     params = {
         'num_leaves': num_leaves,
@@ -212,10 +212,10 @@ else:
     
     params = {'num_leaves': 302,
              'max_depth': 157,
-             'n_estimators': 966,
+             'n_estimators': 1200,
              'subsample_for_bin': 290858,
              'min_child_samples': 79,
-             'reg_alpha': 0.9919573524807885,
+             'reg_alpha': 1.0919573524807885,
              'colsample_bytree': 0.5653288564015742,
              'learning_rate': 0.028565794309535042}
 
@@ -247,3 +247,5 @@ print(params)
 
 # %%
 submission.to_csv('submission_{}.csv'.format(str(model_score)))
+
+# %%
