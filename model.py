@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.2'
-#       jupytext_version: 1.1.7
+#       jupytext_version: 1.0.5
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -27,11 +27,11 @@ import pandas as pd
 import joblib
 from datetime import datetime
 
-from lightgbm import LGBMClassifier
+import lightgbm as lgb
 import optuna
 
 from sklearn.metrics import roc_auc_score
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 from codes import utils
 from codes import fe_browser
@@ -45,7 +45,7 @@ from codes import fe_users
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = False
+SEARCH_PARAMS = True
 
 
 # %% {"_cell_guid": "79c7e3d0-c299-4dcb-8224-4455121ee9b0", "_uuid": "d629ff2d2480ee46fbb7e2d37f6b5fab8052498a"}
@@ -167,14 +167,14 @@ def objective(trial):
 # %%
 if SEARCH_PARAMS:
     study = optuna.create_study(pruner=optuna.pruners.MedianPruner(n_warmup_steps=1))
-    study.optimize(objective, n_trials=3)
+    study.optimize(objective, timeout=60*60*6)
 
     joblib.dump(study, 'study.pkl')
 
     trials_df = pd.DataFrame([trial.value, trial.params] for trial in study.trials)
     trials_df.columns = ['value', 'params']
     trials_df.sort_values(by='value', inplace=True)
-    params_for_cv = 2
+    params_for_cv = 10
     trials_df = trials_df.iloc[:params_for_cv,:]
 
     model = lgb.LGBMClassifier(metric='auc')
