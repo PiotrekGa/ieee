@@ -51,22 +51,13 @@ SEARCH_PARAMS = False
 # %% {"_cell_guid": "79c7e3d0-c299-4dcb-8224-4455121ee9b0", "_uuid": "d629ff2d2480ee46fbb7e2d37f6b5fab8052498a"}
 train, test, sample_submission = utils.import_data(DATA_PATH)
 
-
-# %% [markdown]
-# ### Some Feature Engineering
-#
-# drop columns, count encoding, aggregation, fillna
-
-# %%
+### Some Feature Engineering
 train, test = fe_users.users_stats(train, test)
 
-# %%
 train, test = utils.drop_columns(train, test)
 
-# %%
 train, test = fe_browser.latest(train, test)
 
-# %%
 train, test = fe_emails.proton(train, test)
 
 train['nulls1'] = train.isna().sum(axis=1)
@@ -75,17 +66,12 @@ test['nulls1'] = test.isna().sum(axis=1)
 train, test = fe_emails.mappings(train, test)
 train, test = fe_emails.labeling(train, test)
 
-# %%
 train, test = fe_cards.stats(train, test)
 
-# %%
 train, test = fe_relatives.divisions(train, test)
 
-# %%
 train, test = fe_date.dates(train, test)
 
-
-# %%
 train, test = fe_categorical.pairs(train, test)
 train, test = fe_categorical.wtf(train, test)
 
@@ -145,128 +131,84 @@ def objective(trial):
     
     joblib.dump(study, 'study.pkl')
     
-    num_leaves = trial.suggest_int('num_leaves', 300, 310) 
-    max_depth = trial.suggest_int('max_depth', 150, 160) 
-    n_estimators = trial.suggest_int('n_estimators', 1150, 1250) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 285858, 295858) 
-    min_child_samples = trial.suggest_int('min_child_samples', 75, 85) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 1.0, 1.1) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.56, 0.57) 
-    learning_rate = trial.suggest_loguniform('learning_rate', 0.02, 0.03)   
-
-    params = {
-        'num_leaves': num_leaves,
-        'max_depth': max_depth,
-        'n_estimators': n_estimators,
-        'subsample_for_bin': subsample_for_bin,
-        'min_child_samples': min_child_samples,
-        'reg_alpha': reg_alpha,
-        'colsample_bytree': colsample_bytree,
-        'learning_rate': learning_rate
-    }
+    X_train_, X_test_, y_train_, y_test_ = train_test_split(X_train, y_train, stratify=y_train)
     
-    model.set_params(**params)
+    dtrain = lgb.Dataset(X_train_, label=y_train_)
+    dtest = lgb.Dataset(X_test_, label=y_test_)
 
-    return - cross_val_score2(model, X_train, y_train, 8)
+    param = {
+        'objective': 'binary',
+        'metric': 'binary_error',
+        'verbosity': -1,
+        'num_leaves': trial.suggest_int('num_leaves', 10, 500),
+        'max_depth': trial.suggest_int('max_depth', 10, 300), 
+        'n_estimators': trial.suggest_int('n_estimators', 50, 2000), 
+        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 500000), 
+        'min_child_samples': trial.suggest_int('min_child_samples', 2, 200), 
+        'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00001, 10.0),
+        'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 0.000001, 10.0)   
+    }
+
+    # Add a callback for pruning.
+    pruning_callback = optuna.integration.LightGBMPruningCallback(trial, 'binary_error')
+    gbm = lgb.train(
+        param, dtrain, valid_sets=[dtest], verbose_eval=False, callbacks=[pruning_callback])
+
+    preds = gbm.predict(X_test_)
+    
+    del X_train_, X_test_, y_train_
+    
+    gc.collect()
+    
+    return - roc_auc_score(y_test_, preds)
 
 
 # %%
 if SEARCH_PARAMS:
+    study = optuna.create_study(pruner=optuna.pruners.MedianPruner(n_warmup_steps=1))
+    study.optimize(objective, n_trials=3)
 
-    if os.path.isfile('study.pkl'):
-        study = joblib.load('study.pkl')
-    else:
-        study = optuna.create_study()
-    study.optimize(objective, n_trials=5)
-    
     joblib.dump(study, 'study.pkl')
-    
-    params = study.best_params
 
+    trials_df = pd.DataFrame([trial.value, trial.params] for trial in study.trials)
+    trials_df.columns = ['value', 'params']
+    trials_df.sort_values(by='value', inplace=True)
+    params_for_cv = 2
+    trials_df = trials_df.iloc[:params_for_cv,:]
+
+    model = lgb.LGBMClassifier(metric='auc')
+    n_folds = 8
+
+    best_params = None
+    best_value = 0
+
+    for params in trials_df.params:
+        model.set_params(**params)
+        score = cross_val_score2(model, X_train, y_train, n_folds)
+
+        if score > best_value:
+            best_value = score
+            best_params = params
+
+        gc.collect()
+        
 else:
-    
-    params = {'num_leaves': 302,
-             'max_depth': 157,
-             'n_estimators': 1200,
-             'subsample_for_bin': 290858,
-             'min_child_samples': 79,
-             'reg_alpha': 1.0919573524807885,
-             'colsample_bytree': 0.5653288564015742,
-             'learning_rate': 0.028565794309535042}
-
-
-# %%
-def objective(trial):
-    
-    joblib.dump(study, 'study.pkl')
-    
-    num_leaves = trial.suggest_int('num_leaves', 2, 500) 
-    max_depth = trial.suggest_int('max_depth', 2, 300) 
-    n_estimators = trial.suggest_int('n_estimators', 50, 2000) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 1_000, 500_000) 
-    min_child_samples = trial.suggest_int('min_child_samples', 20, 100_000) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 2.0) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.5, 1.0) 
-    learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-0)   
-
-    params = {
-        'num_leaves': num_leaves,
-        'max_depth': max_depth,
-        'n_estimators': n_estimators,
-        'subsample_for_bin': subsample_for_bin,
-        'min_child_samples': min_child_samples,
-        'reg_alpha': reg_alpha,
-        'colsample_bytree': colsample_bytree,
-        'learning_rate': learning_rate
-    }
-    
-    model.set_params(**params)
-
-    return - cross_val_score2(model, X_train, y_train, 8)
-
-
-# %%
-if SEARCH_PARAMS:
-
-    if os.path.isfile('study.pkl'):
-        study = joblib.load('study.pkl')
-    else:
-        study = optuna.create_study()
-    study.optimize(objective, timeout=60*60*9)
-    
-    joblib.dump(study, 'study.pkl')
-    
-    params = study.best_params
-
-else:
-    
-    params = {'num_leaves': 280,
-             'max_depth': 104,
-             'n_estimators': 1857,
-             'subsample_for_bin': 486701,
-             'min_child_samples': 201,
-             'reg_alpha': 1.2603270316257835,
-             'colsample_bytree': 0.6015289408690518,
-             'learning_rate': 0.05929809414975412}
-
-# %%
-model = LGBMClassifier(metric='auc')
-model.set_params(**params)
-
-n_fold = 8
-folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
-
-model_scores = []
-model_scores_tr = []
-for train_index, valid_index in folds.split(X_train, y_train):
-    pass
+    best_params = {'num_leaves': 302,
+                   'max_depth': 157,
+                   'n_estimators': 1200,
+                   'subsample_for_bin': 290858,
+                   'min_child_samples': 79,
+                   'reg_alpha': 1.0919573524807885,
+                   'colsample_bytree': 0.5653288564015742,
+                   'learning_rate': 0.028565794309535042}
 
 # %%
 n_fold = 8
 folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
 
-model = LGBMClassifier(metric='auc')
-model.set_params(**params)
+model = lgb.LGBMClassifier(metric='auc')
+model.set_params(**best_params)
 
 model_scores = []
 model_scores_tr = []
