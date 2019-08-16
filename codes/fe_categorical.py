@@ -19,14 +19,7 @@ def pairs(train, test):
 
 def wtf(train, test):
 
-    for feature in ['id_34', 'id_36']:
-        # Count encoded for both train and test
-        train[feature + '_count_full'] = train[feature].map(
-            pd.concat([train[feature], test[feature]], ignore_index=True).value_counts(dropna=False))
-        test[feature + '_count_full'] = test[feature].map(
-            pd.concat([train[feature], test[feature]], ignore_index=True).value_counts(dropna=False))
-
-    for feature in ['id_01', 'id_31', 'id_33', 'id_35', 'id_36']:
+    for feature in ['id_01', 'id_31', 'id_33', 'id_35']:
         # Count encoded separately for train and test
         train[feature + '_count_dist'] = train[feature].map(train[feature].value_counts(dropna=False))
         test[feature + '_count_dist'] = test[feature].map(test[feature].value_counts(dropna=False))
