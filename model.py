@@ -6,18 +6,12 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.2'
-#       jupytext_version: 1.0.5
+#       jupytext_version: 1.1.7
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
 #     name: python3
 # ---
-
-# %%
-# # !rm -r ieee
-# # !rm -r codes
-# # !git clone https://github.com/PiotrekGa/ieee.git
-# # !mv ieee/codes .
 
 # %%
 import os
@@ -116,7 +110,7 @@ model = LGBMClassifier(metric='auc')
 # %%
 def cross_val_score2(model, X_train, y_train, n_fold):
     
-    folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
+    folds = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=42)
     
     model_scores = []
     for train_index, valid_index in folds.split(X_train, y_train):
@@ -129,62 +123,10 @@ def cross_val_score2(model, X_train, y_train, n_fold):
         model_scores.append(roc_auc_score(y_valid, val))
         print('ROC accuracy: {}'.format(model_scores[-1]))
         del val, y_valid
+        gc.collect()
     
     print('')
     return np.mean(model_scores)
-
-
-# %%
-def objective(trial):
-    
-    joblib.dump(study, 'study.pkl')
-    
-    num_leaves = trial.suggest_int('num_leaves', 300, 310) 
-    max_depth = trial.suggest_int('max_depth', 150, 160) 
-    n_estimators = trial.suggest_int('n_estimators', 1150, 1250) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 285858, 295858) 
-    min_child_samples = trial.suggest_int('min_child_samples', 75, 85) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 1.0, 1.1) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.56, 0.57) 
-    learning_rate = trial.suggest_loguniform('learning_rate', 0.02, 0.03)   
-
-    params = {
-        'num_leaves': num_leaves,
-        'max_depth': max_depth,
-        'n_estimators': n_estimators,
-        'subsample_for_bin': subsample_for_bin,
-        'min_child_samples': min_child_samples,
-        'reg_alpha': reg_alpha,
-        'colsample_bytree': colsample_bytree,
-        'learning_rate': learning_rate
-    }
-    
-    model.set_params(**params)
-
-    return - cross_val_score2(model, X_train, y_train, 8)
-
-
-# %%
-if SEARCH_PARAMS:
-
-    if os.path.isfile('study.pkl'):
-        study = joblib.load('study.pkl')
-    else:
-        study = optuna.create_study()
-    study.optimize(objective, n_trials=5)
-    
-    params = study.best_params
-
-else:
-    
-    params = {'num_leaves': 302,
-             'max_depth': 157,
-             'n_estimators': 1200,
-             'subsample_for_bin': 290858,
-             'min_child_samples': 79,
-             'reg_alpha': 1.0919573524807885,
-             'colsample_bytree': 0.5653288564015742,
-             'learning_rate': 0.028565794309535042}
 
 
 # %%
@@ -246,7 +188,7 @@ model = LGBMClassifier(metric='auc')
 model.set_params(**params)
 
 n_fold = 8
-folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
+folds = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=42)
 
 model_scores = []
 for train_index, valid_index in folds.split(X_train, y_train):
@@ -262,6 +204,7 @@ for train_index, valid_index in folds.split(X_train, y_train):
     del val, y_valid
     submission['isFraud'] = submission['isFraud'] + pred / n_fold
     del pred
+    gc.collect()
     
 model_score = np.round(np.mean(model_scores),4)
 print(model_score)
