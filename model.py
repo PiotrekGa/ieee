@@ -26,7 +26,6 @@ import numpy as np
 import pandas as pd
 import joblib
 from datetime import datetime
-from tqdm import tqdm_notebook
 
 import lightgbm as lgb
 import optuna
@@ -46,8 +45,7 @@ from codes import fe_users
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = False
-n_fold = 8
+SEARCH_PARAMS = True
 
 
 # %% {"_cell_guid": "79c7e3d0-c299-4dcb-8224-4455121ee9b0", "_uuid": "d629ff2d2480ee46fbb7e2d37f6b5fab8052498a"}
@@ -79,7 +77,7 @@ train, test = fe_categorical.wtf(train, test)
 
 
 # %%
-train.dtypes.value_counts()
+train.shape
 
 # %%
 X_train = train.copy()
@@ -130,6 +128,7 @@ def cross_val_score2(model, X_train, y_train, n_fold):
 
 # %%
 def objective(trial):
+    
     joblib.dump(study, 'study.pkl')
     
     X_train_, X_test_, y_train_, y_test_ = train_test_split(X_train, y_train, stratify=y_train)
@@ -143,8 +142,7 @@ def objective(trial):
         'verbosity': -1,
         'num_leaves': trial.suggest_int('num_leaves', 10, 500),
         'max_depth': trial.suggest_int('max_depth', 10, 300), 
-#         'n_estimators': trial.suggest_int('n_estimators', 50, 2000), 
-        'n_estimators': 1200,
+        'n_estimators': trial.suggest_int('n_estimators', 50, 2000), 
         'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 500000), 
         'min_child_samples': trial.suggest_int('min_child_samples', 2, 200), 
         'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00001, 10.0),
@@ -168,7 +166,7 @@ def objective(trial):
 
 # %%
 if SEARCH_PARAMS:
-    study = optuna.create_study(pruner=optuna.pruners.MedianPruner(n_warmup_steps=10))
+    study = optuna.create_study(pruner=optuna.pruners.MedianPruner(n_warmup_steps=1))
     study.optimize(objective, timeout=60*60*6)
 
     joblib.dump(study, 'study.pkl')
@@ -180,13 +178,14 @@ if SEARCH_PARAMS:
     trials_df = trials_df.iloc[:params_for_cv,:]
 
     model = lgb.LGBMClassifier(metric='auc')
+    n_folds = 8
 
     best_params = None
     best_value = 0
 
     for params in trials_df.params:
         model.set_params(**params)
-        score = cross_val_score2(model, X_train, y_train, n_fold)
+        score = cross_val_score2(model, X_train, y_train, n_folds)
 
         if score > best_value:
             best_value = score
@@ -200,34 +199,20 @@ else:
                    'n_estimators': 1200,
                    'subsample_for_bin': 290858,
                    'min_child_samples': 79,
-                   'reg_alpha': 1.2,
+                   'reg_alpha': 1.0919573524807885,
                    'colsample_bytree': 0.5653288564015742,
                    'learning_rate': 0.028565794309535042}
 
 # %%
-#benchmark: 0.93493
-#current:   0.93580
-
-# ROC accuracy: 0.9764910549866562, ROC train: 0.9999997134917551
-# ROC accuracy: 0.9798173483745285, ROC train: 0.9999993176156706
-# ROC accuracy: 0.9796044896846606, ROC train: 0.999999333921018
-# ROC accuracy: 0.9799376146756081, ROC train: 0.9999992214473981
-# ROC accuracy: 0.9779143538610231, ROC train: 0.9999995176057465
-# ROC accuracy: 0.97729511666745, ROC train: 0.9999993471218942
-# ROC accuracy: 0.9787953822526927, ROC train: 0.9999992397508431
-# ROC accuracy: 0.9787187238393698, ROC train: 0.9999991877740493
-
-# 0.97857
-
-# %%
-folds = StratifiedKFold(n_splits=n_fold, shuffle=True, random_state=42)
+n_fold = 8
+folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
 
 model = lgb.LGBMClassifier(metric='auc')
 model.set_params(**best_params)
 
 model_scores = []
 model_scores_tr = []
-for train_index, valid_index in tqdm_notebook(folds.split(X_train, y_train), total=n_fold):
+for train_index, valid_index in folds.split(X_train, y_train):
     
     X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
     y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
@@ -246,12 +231,10 @@ for train_index, valid_index in tqdm_notebook(folds.split(X_train, y_train), tot
     del pred
     gc.collect()
     
-model_score = np.round(np.mean(model_scores),5)
+model_score = np.round(np.mean(model_scores),4)
 print(model_score)
-print(best_params)
+print(params)
 
 # %%
 timestamp = str(int(datetime.timestamp(datetime.now())))
 submission.to_csv('{}_submission_{}.csv'.format(timestamp, str(model_score)))
-
-# %%
