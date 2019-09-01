@@ -102,7 +102,7 @@ submission = sample_submission.copy()
 submission['isFraud'] = 0
 
 # %%
-model = lgb.LGBMClassifier(metric='auc')
+model = LGBMClassifier(metric='auc')
 
 
 # %%
