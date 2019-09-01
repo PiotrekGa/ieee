@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: percent
 #       format_version: '1.2'
-#       jupytext_version: 1.1.7
+#       jupytext_version: 1.0.5
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -91,22 +91,16 @@ train, test = fe_categorical.wtf(train, test)
 
 
 # %%
-train.shape
+y_train = train['isFraud'].copy()
 
-# %%
-X_train = train.copy()
+
+X_train = train.drop('isFraud', axis=1)
 X_test = test.copy()
 
 del train, test
 
 #fill in mean for floats
 X_train, X_test = prepro.prepro(X_train, X_test)
-
-y_train = X_train['isFraud'].copy()
-X_train = X_train.drop('isFraud', axis=1)
-
-# %%
-X_train = utils.reduce_mem_usage(X_train)
 
 # %% [markdown]
 # ### Model and training
@@ -179,8 +173,6 @@ if SEARCH_PARAMS:
         study = optuna.create_study()
     study.optimize(objective, n_trials=5)
     
-    joblib.dump(study, 'study.pkl')
-    
     params = study.best_params
 
 else:
@@ -202,9 +194,9 @@ def objective(trial):
     
     num_leaves = trial.suggest_int('num_leaves', 2, 500) 
     max_depth = trial.suggest_int('max_depth', 2, 300) 
-    n_estimators = trial.suggest_int('n_estimators', 50, 2000) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 1_000, 500_000) 
-    min_child_samples = trial.suggest_int('min_child_samples', 20, 100_000) 
+    n_estimators = trial.suggest_int('n_estimators', 100, 2000) 
+    subsample_for_bin = trial.suggest_int('subsample_for_bin', 100_000, 500_000) 
+    min_child_samples = trial.suggest_int('min_child_samples', 20, 10000) 
     reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 2.0) 
     colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.5, 1.0) 
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-0)   
@@ -240,14 +232,14 @@ if SEARCH_PARAMS:
 
 else:
     
-    params = {'num_leaves': 280,
-             'max_depth': 104,
-             'n_estimators': 1857,
-             'subsample_for_bin': 486701,
-             'min_child_samples': 201,
-             'reg_alpha': 1.2603270316257835,
-             'colsample_bytree': 0.6015289408690518,
-             'learning_rate': 0.05929809414975412}
+    params = {'num_leaves': 302,
+             'max_depth': 157,
+             'n_estimators': 1200,
+             'subsample_for_bin': 290858,
+             'min_child_samples': 79,
+             'reg_alpha': 1.0919573524807885,
+             'colsample_bytree': 0.5653288564015742,
+             'learning_rate': 0.028565794309535042}
 
 # %%
 model = LGBMClassifier(metric='auc')
@@ -257,37 +249,19 @@ n_fold = 8
 folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
 
 model_scores = []
-model_scores_tr = []
 for train_index, valid_index in folds.split(X_train, y_train):
-    pass
-
-# %%
-n_fold = 8
-folds = StratifiedKFold(n_splits=n_fold, shuffle=True)
-
-model = LGBMClassifier(metric='auc')
-model.set_params(**params)
-
-model_scores = []
-model_scores_tr = []
-for train_index, valid_index in folds.split(X_train, y_train):
-    
     X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
     y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
     model.fit(X_train_,y_train_)
-    train_val = model.predict_proba(X_train_)[:,1]
-    model_scores_tr.append(roc_auc_score(y_train_, train_val))
-    del X_train_,y_train_, train_val
-    pred = model.predict_proba(X_test)[:,1]
-    val = model.predict_proba(X_valid)[:,1]
-    
+    del X_train_,y_train_
+    pred=model.predict_proba(X_test)[:,1]
+    val=model.predict_proba(X_valid)[:,1]
     del X_valid
     model_scores.append(roc_auc_score(y_valid, val))
-    print('ROC accuracy: {}, ROC train: {}'.format(model_scores[-1], model_scores_tr[-1]))
+    print('ROC accuracy: {}'.format(model_scores[-1]))
     del val, y_valid
     submission['isFraud'] = submission['isFraud'] + pred / n_fold
     del pred
-    gc.collect()
     
 model_score = np.round(np.mean(model_scores),4)
 print(model_score)
