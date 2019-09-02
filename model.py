@@ -25,7 +25,7 @@ from lightgbm import LGBMClassifier
 import optuna
 from prunedcv import PrunedCV
 
-from codes.utils import import_data, drop_columns, cross_val_score_auc
+from codes.utils import import_data, drop_columns, cross_val_score_auc, reduce_mem_usage
 from codes.fe_browser import latest
 from codes.fe_emails import proton, mappings, labeling
 from codes.fe_cards import stats
@@ -84,6 +84,9 @@ del train, test
 
 #fill in mean for floats
 X_train, X_test = prepro(X_train, X_test)
+
+X_train = reduce_mem_usage(X_train)
+X_test = reduce_mem_usage(X_test)
 
 # %% [markdown]
 # ### Model and training
@@ -144,6 +147,9 @@ else:
                    'learning_rate': 0.028565794309535042}
 
 # %%
+model.get_params()
+
+# %%
 model = LGBMClassifier(metric='auc',
                        n_estimators=2000,
                        boosting_type='gbdt',
@@ -155,10 +161,21 @@ cross_val_score_auc(model,
                     X_train,
                     y_train,
                     n_fold=N_FOLD,
-                    shuffle=False,
+                    stratify=True,
+                    shuffle=True,
                     random_state=42,
                     predict=True,
                     X_test=X_test,
                     submission=sample_submission)
 
 # %%
+# ROC accuracy: 0.9751335550235447, Train: 0.9999994424014916
+# ROC accuracy: 0.979350658169819, Train: 0.9999995681855991
+# ROC accuracy: 0.978078995160897, Train: 0.9999994764541557
+# ROC accuracy: 0.9785157994968532, Train: 0.9999991995960142
+# ROC accuracy: 0.9763520549904333, Train: 0.999999053180651
+# ROC accuracy: 0.9769807209581446, Train: 0.9999992919944019
+# ROC accuracy: 0.977527478618695, Train: 0.9999993639818112
+# ROC accuracy: 0.9786526157982463, Train: 0.9999991182307375
+
+# 0.9775739847770791

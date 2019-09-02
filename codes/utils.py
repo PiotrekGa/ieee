@@ -3,9 +3,10 @@ import pandas as pd
 import gc
 import joblib
 import os
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.metrics import roc_auc_score
 from datetime import datetime
+from tqdm import tqdm_notebook
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -86,6 +87,7 @@ def cross_val_score_auc(model,
                         X_train,
                         y_train,
                         n_fold,
+                        stratify=True,
                         shuffle=False,
                         random_state=None,
                         predict=False,
@@ -93,10 +95,14 @@ def cross_val_score_auc(model,
                         submission=None,
                         verbose=1):
 
-    folds = StratifiedKFold(n_splits=n_fold, shuffle=shuffle, random_state=random_state)
+    if stratify:
+        folds = StratifiedKFold(n_splits=n_fold, shuffle=shuffle, random_state=random_state)
+    else:
+        folds = KFold(n_splits=n_fold, shuffle=shuffle, random_state=random_state)
 
     model_scores = []
-    for train_index, valid_index in folds.split(X_train, y_train):
+    for train_index, valid_index in tqdm_notebook(folds.split(X_train, y_train),
+                                                  total=n_fold):
         X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
         y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
 
@@ -105,8 +111,7 @@ def cross_val_score_auc(model,
         train_val = model.predict_proba(X_train_)[:, 1]
         val = model.predict_proba(X_valid)[:, 1]
         if predict:
-            submission['isFraud'] = model.predict_proba(X_test)[:, 1]
-
+            submission['isFraud'] = submission['isFraud'] + model.predict_proba(X_test)[:, 1] / n_fold
         del X_valid
 
         model_scores.append(roc_auc_score(y_valid, val))
