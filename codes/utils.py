@@ -5,7 +5,7 @@ import joblib
 import os
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import roc_auc_score
-import datetime
+from datetime import datetime
 
 
 def reduce_mem_usage(df, verbose=True):

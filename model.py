@@ -23,6 +23,7 @@ from datetime import datetime
 
 from lightgbm import LGBMClassifier
 import optuna
+from prunedcv import PrunedCV
 
 from codes.utils import import_data, drop_columns, cross_val_score_auc
 from codes.fe_browser import latest
@@ -52,13 +53,10 @@ train, test, sample_submission = import_data(DATA_PATH)
 # %%
 train, test = users_stats(train, test)
 
-# %%
 train, test = drop_columns(train, test)
 
-# %%
 train, test = latest(train, test)
 
-# %%
 train, test = proton(train, test)
 
 train['nulls1'] = train.isna().sum(axis=1)
@@ -67,22 +65,15 @@ test['nulls1'] = test.isna().sum(axis=1)
 train, test = mappings(train, test)
 train, test = labeling(train, test)
 
-# %%
 train, test = stats(train, test)
 
-# %%
 train, test = divisions(train, test)
 
-# %%
 train, test = dates(train, test)
 
-
-# %%
 train, test = pairs(train, test)
 train, test = wtf(train, test)
 
-
-# %%
 y_train = train['isFraud'].copy()
 
 
@@ -98,56 +89,49 @@ X_train, X_test = prepro(X_train, X_test)
 # ### Model and training
 
 # %%
-submission = sample_submission.copy()
-submission['isFraud'] = 0
+model = LGBMClassifier(metric='auc',
+                       n_estimators=2000,
+                       boosting_type='gbdt',
+                       is_unbalance=True,)
 
 # %%
-model = LGBMClassifier(metric='auc')
+prun = PrunedCV(n_fold, 0.02, minimize=False)
 
-
-# %%
 def objective(trial):
     
-    joblib.dump(study, 'study.pkl')
+    joblib.dump(study, 'study.pkl') 
     
-    num_leaves = trial.suggest_int('num_leaves', 2, 500) 
-    max_depth = trial.suggest_int('max_depth', 2, 300) 
-    n_estimators = trial.suggest_int('n_estimators', 100, 2000) 
-    subsample_for_bin = trial.suggest_int('subsample_for_bin', 100_000, 500_000) 
-    min_child_samples = trial.suggest_int('min_child_samples', 20, 10000) 
-    reg_alpha = trial.suggest_uniform('reg_alpha', 0.0, 2.0) 
-    colsample_bytree = trial.suggest_uniform('colsample_bytree', 0.5, 1.0) 
-    learning_rate = trial.suggest_loguniform('learning_rate', 1e-5, 1e-0)   
-
     params = {
-        'num_leaves': num_leaves,
-        'max_depth': max_depth,
-        'n_estimators': n_estimators,
-        'subsample_for_bin': subsample_for_bin,
-        'min_child_samples': min_child_samples,
-        'reg_alpha': reg_alpha,
-        'colsample_bytree': colsample_bytree,
-        'learning_rate': learning_rate
+        'max_depth': trial.suggest_int('max_depth', 10, 5000), 
+        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 3000000), 
+        'min_child_samples': trial.suggest_int('min_child_samples', 2, 100000), 
+        'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00000000001, 10.0),
+        'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 0.000001, 10.0)  
     }
     
+    model = LGBMClassifier()
     model.set_params(**params)
 
-    return - cross_val_score_auc(model, X_train, y_train, n_fold=N_FOLD, shuffle=False, random_state=42)
+    return prun.cross_val_score(model, 
+                                X_train, 
+                                y, 
+                                metric='auc', 
+                                shuffle=True, 
+                                random_state=42)
 
 
 # %%
 if SEARCH_PARAMS:
-
     if os.path.isfile('study.pkl'):
         study = joblib.load('study.pkl')
     else:
         study = optuna.create_study()
-    study.optimize(objective, timeout=60*60*9)
-    
-    joblib.dump(study, 'study.pkl')
-    
-    params = study.best_params
 
+    study.optimize(objective, timeout=60*60*7)
+    joblib.dump(study, 'study.pkl')
+    best_params = study.best_params
+    
 else:
     
     params = {'num_leaves': 302,
@@ -160,7 +144,11 @@ else:
              'learning_rate': 0.028565794309535042}
 
 # %%
-model = LGBMClassifier(metric='auc')
+model = LGBMClassifier(metric='auc',
+                       n_estimators=2000,
+                       boosting_type='gbdt',
+                       is_unbalance=True,)
+
 model.set_params(**params)
 
 cross_val_score_auc(model,
