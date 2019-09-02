@@ -3,6 +3,9 @@ import pandas as pd
 import gc
 import joblib
 import os
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import roc_auc_score
+import datetime
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -14,18 +17,12 @@ def reduce_mem_usage(df, verbose=True):
             c_min = df[col].min()
             c_max = df[col].max()
             if str(col_type)[:3] == 'int':
-                if c_min > np.iinfo(np.int8).min and c_max < np.iinfo(np.int8).max:
-                    df[col] = df[col].astype(np.int8)
-                elif c_min > np.iinfo(np.int16).min and c_max < np.iinfo(np.int16).max:
-                    df[col] = df[col].astype(np.int16)
-                elif c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
+                if c_min > np.iinfo(np.int32).min and c_max < np.iinfo(np.int32).max:
                     df[col] = df[col].astype(np.int32)
                 elif c_min > np.iinfo(np.int64).min and c_max < np.iinfo(np.int64).max:
                     df[col] = df[col].astype(np.int64)
             else:
-                if c_min > np.finfo(np.float16).min and c_max < np.finfo(np.float16).max:
-                    df[col] = df[col].astype(np.float16)
-                elif c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
+                if c_min > np.finfo(np.float32).min and c_max < np.finfo(np.float32).max:
                     df[col] = df[col].astype(np.float32)
                 else:
                     df[col] = df[col].astype(np.float64)
@@ -83,3 +80,50 @@ def drop_columns(train, test):
     print('{} features are going to be dropped for being useless'.format(len(cols_to_drop)))
 
     return train.drop(cols_to_drop, axis=1), test.drop(cols_to_drop, axis=1)
+
+
+def cross_val_score_auc(model,
+                        X_train,
+                        y_train,
+                        n_fold,
+                        shuffle=False,
+                        random_state=None,
+                        predict=False,
+                        X_test=None,
+                        submission=None,
+                        verbose=1):
+
+    folds = StratifiedKFold(n_splits=n_fold, shuffle=shuffle, random_state=random_state)
+
+    model_scores = []
+    for train_index, valid_index in folds.split(X_train, y_train):
+        X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
+        y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
+
+        model.fit(X_train_, y_train_)
+
+        train_val = model.predict_proba(X_train_)[:, 1]
+        val = model.predict_proba(X_valid)[:, 1]
+        if predict:
+            submission['isFraud'] = model.predict_proba(X_test)[:, 1]
+
+        del X_valid
+
+        model_scores.append(roc_auc_score(y_valid, val))
+        train_score = roc_auc_score(y_train_, train_val)
+
+        if verbose > 0:
+            print('ROC accuracy: {}, Train: {}'.format(model_scores[-1], train_score))
+        del val, y_valid
+
+        gc.collect()
+
+    score = np.mean(model_scores)
+
+    if predict:
+        model_score = np.round(score, 5)
+        timestamp = str(int(datetime.timestamp(datetime.now())))
+        submission.to_csv('{}_submission_{}.csv'.format(timestamp, str(model_score)))
+
+    print('')
+    return score
