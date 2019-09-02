@@ -134,14 +134,14 @@ if SEARCH_PARAMS:
     
 else:
     
-    params = {'num_leaves': 302,
-             'max_depth': 157,
-             'n_estimators': 1200,
-             'subsample_for_bin': 290858,
-             'min_child_samples': 79,
-             'reg_alpha': 1.0919573524807885,
-             'colsample_bytree': 0.5653288564015742,
-             'learning_rate': 0.028565794309535042}
+    best_params = {'num_leaves': 302,
+                   'max_depth': 157,
+                   'n_estimators': 1200,
+                   'subsample_for_bin': 290858,
+                   'min_child_samples': 79,
+                   'reg_alpha': 1.0919573524807885,
+                   'colsample_bytree': 0.5653288564015742,
+                   'learning_rate': 0.028565794309535042}
 
 # %%
 model = LGBMClassifier(metric='auc',
@@ -149,7 +149,7 @@ model = LGBMClassifier(metric='auc',
                        boosting_type='gbdt',
                        is_unbalance=True,)
 
-model.set_params(**params)
+model.set_params(**best_params)
 
 cross_val_score_auc(model,
                     X_train,
