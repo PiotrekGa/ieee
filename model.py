@@ -95,7 +95,7 @@ model = LGBMClassifier(metric='auc',
                        is_unbalance=True,)
 
 # %%
-prun = PrunedCV(n_fold, 0.02, minimize=False)
+prun = PrunedCV(N_FOLD, 0.02, minimize=False)
 
 def objective(trial):
     
@@ -159,6 +159,6 @@ cross_val_score_auc(model,
                     random_state=42,
                     predict=True,
                     X_test=X_test,
-                    submission=submission)
+                    submission=sample_submission)
 
 # %%
