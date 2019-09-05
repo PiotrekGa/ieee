@@ -37,7 +37,7 @@ from codes.fe_users import users_stats
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = False
+SEARCH_PARAMS = True
 N_FOLD = 8
 
 
@@ -93,36 +93,50 @@ X_test = reduce_mem_usage(X_test)
 
 # %%
 model = LGBMClassifier(metric='auc',
-                       n_estimators=2000,
-                       boosting_type='gbdt',
-                       is_unbalance=True,)
+                       n_estimators=1000,
+                       boosting_type='gbdt')
 
 # %%
 prun = PrunedCV(N_FOLD, 0.02, minimize=False)
 
+
+# %%
 def objective(trial):
     
     joblib.dump(study, 'study.pkl') 
     
     params = {
-        'max_depth': trial.suggest_int('max_depth', 10, 5000), 
-        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 3000000), 
+        'num_leaves': trial.suggest_int('num_leaves', 10, 1500), 
+        'max_depth': trial.suggest_int('max_depth', 10, 1500), 
+        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 10, 3000000), 
         'min_child_samples': trial.suggest_int('min_child_samples', 2, 100000), 
         'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00000000001, 10.0),
         'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
         'learning_rate': trial.suggest_loguniform('learning_rate', 0.000001, 10.0)  
     }
     
-    model = LGBMClassifier()
+#     params = {
+#         'num_leaves': trial.suggest_int('num_leaves', 300, 310), 
+#         'max_depth': trial.suggest_int('max_depth', 150, 160), 
+#         'subsample_for_bin': trial.suggest_int('subsample_for_bin', 290000, 291000), 
+#         'min_child_samples': trial.suggest_int('min_child_samples', 75, 82), 
+#         'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.990, 0.993),
+#         'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.55, 0.58),
+#         'learning_rate': trial.suggest_loguniform('learning_rate', 0.02, 0.03)  
+#     }
+    
+    
     model.set_params(**params)
 
     return prun.cross_val_score(model, 
                                 X_train, 
-                                y, 
+                                y_train, 
                                 metric='auc', 
                                 shuffle=True, 
                                 random_state=42)
 
+# %%
+SEARCH_PARAMS = False
 
 # %%
 if SEARCH_PARAMS:
@@ -131,29 +145,24 @@ if SEARCH_PARAMS:
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60*60*7)
+    study.optimize(objective, timeout=60*60*1)
     joblib.dump(study, 'study.pkl')
     best_params = study.best_params
     
 else:
     
     best_params = {'num_leaves': 302,
-                   'max_depth': 157,
-                   'n_estimators': 1200,
-                   'subsample_for_bin': 290858,
-                   'min_child_samples': 79,
-                   'reg_alpha': 1.0919573524807885,
-                   'colsample_bytree': 0.5653288564015742,
-                   'learning_rate': 0.028565794309535042}
-
-# %%
-model.get_params()
+                 'max_depth': 157,
+                 'subsample_for_bin': 290858,
+                 'min_child_samples': 79,
+                 'reg_alpha': 0.9919573524807885,
+                 'colsample_bytree': 0.5653288564015742,
+                 'learning_rate': 0.028565794309535042}
 
 # %%
 model = LGBMClassifier(metric='auc',
-                       n_estimators=2000,
-                       boosting_type='gbdt',
-                       is_unbalance=True,)
+                       n_estimators=1000,
+                       boosting_type='gbdt')
 
 model.set_params(**best_params)
 
@@ -169,13 +178,16 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9751335550235447, Train: 0.9999994424014916
-# ROC accuracy: 0.979350658169819, Train: 0.9999995681855991
-# ROC accuracy: 0.978078995160897, Train: 0.9999994764541557
-# ROC accuracy: 0.9785157994968532, Train: 0.9999991995960142
-# ROC accuracy: 0.9763520549904333, Train: 0.999999053180651
-# ROC accuracy: 0.9769807209581446, Train: 0.9999992919944019
-# ROC accuracy: 0.977527478618695, Train: 0.9999993639818112
-# ROC accuracy: 0.9786526157982463, Train: 0.9999991182307375
+model.get_params()
 
-# 0.9775739847770791
+# %%
+# ROC accuracy: 0.9751879082829373, Train: 0.9999352358261676
+# ROC accuracy: 0.9787100821002697, Train: 0.9999107349898608
+# ROC accuracy: 0.9778540984278778, Train: 0.9999137696701055
+# ROC accuracy: 0.9783780060223369, Train: 0.9999091975176261
+# ROC accuracy: 0.9761992615163245, Train: 0.999916894750745
+# ROC accuracy: 0.9766395096557384, Train: 0.9999281378200259
+# ROC accuracy: 0.9777909388317408, Train: 0.9999049420126224
+# ROC accuracy: 0.9776969661329578, Train: 0.999904317276327
+
+# 0.9773070963712729
