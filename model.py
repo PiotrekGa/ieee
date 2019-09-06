@@ -91,6 +91,8 @@ X_train = reduce_mem_usage(X_train)
 X_test = reduce_mem_usage(X_test)
 
 # %%
+
+# %%
 # columns = list(set(
 #     ['dist1', 'dist2'] \
 # + ['C{}'.format(i) for i in range(1,15)] \
@@ -128,6 +130,10 @@ X_test[X_test == -np.inf] = -1
 
 # X_train = rfe.transform(X_train)
 # X_test = rfe.transform(X_test)
+
+# %%
+X_train.drop('TransactionDT', axis=1, inplace=True)
+X_test.drop('TransactionDT', axis=1, inplace=True)
 
 # %%
 model = LGBMClassifier(metric='auc',
@@ -212,13 +218,14 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9751879082829373, Train: 0.9999352358261676
-# ROC accuracy: 0.9787100821002697, Train: 0.9999107349898608
-# ROC accuracy: 0.9778540984278778, Train: 0.9999137696701055
-# ROC accuracy: 0.9783780060223369, Train: 0.9999091975176261
-# ROC accuracy: 0.9761992615163245, Train: 0.999916894750745
-# ROC accuracy: 0.9766395096557384, Train: 0.9999281378200259
-# ROC accuracy: 0.9777909388317408, Train: 0.9999049420126224
-# ROC accuracy: 0.9776969661329578, Train: 0.999904317276327
+# ROC accuracy: 0.9750555115474047, Train: 0.9999886512564585
+# ROC accuracy: 0.9785439571047838, Train: 0.999984997638542
+# ROC accuracy: 0.9771678049682662, Train: 0.9999792164501086
+# ROC accuracy: 0.9774585060473232, Train: 0.9999807818743672
+# ROC accuracy: 0.9757612669630091, Train: 0.9999815930376637
+# ROC accuracy: 0.9763278313758115, Train: 0.999986780272101
+# ROC accuracy: 0.9776690132104133, Train: 0.9999789600435759
+# ROC accuracy: 0.9770905326434537, Train: 0.9999807259658091
 
-# 0.9773070963712729
+
+# 0.9768843029825582
