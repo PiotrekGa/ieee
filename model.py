@@ -91,14 +91,10 @@ X_train = reduce_mem_usage(X_train)
 X_test = reduce_mem_usage(X_test)
 
 # %%
-
-# %%
 # columns = list(set(
-#     ['dist1', 'dist2'] \
-# + ['C{}'.format(i) for i in range(1,15)] \
+# ['C{}'.format(i) for i in range(1,15)] \
 # + ['D{}'.format(i) for i in range(1,16)] \
-# + ['V' + str(i) for i in range(1,340)] \
-# + ['id_' + str(i).zfill(2) for i in range(1, 12)]))
+# + ['V' + str(i) for i in range(1,340)]))
 
 # for col in columns:
 #     if col in X_train.columns:
@@ -115,25 +111,25 @@ X_test[X_test == np.inf] = -1
 X_test[X_test == -np.inf] = -1
 
 # %%
-# best_params = {'num_leaves': 302,
-#                  'max_depth': 157,
-#                  'subsample_for_bin': 290858,
-#                  'min_child_samples': 79,
-#                  'reg_alpha': 0.9919573524807885,
-#                  'colsample_bytree': 0.5653288564015742,
-#                  'learning_rate': 0.028565794309535042}
-# mod = LGBMClassifier(metric='auc',
-#                      boosting_type='gbdt')
-# mod.set_params(**best_params)
-# rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
-# rfe.fit(X_train, y_train)
-
-# X_train = rfe.transform(X_train)
-# X_test = rfe.transform(X_test)
+X_train.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
+X_test.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
 
 # %%
-X_train.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
-X_test.drop(['TransactionDT', 'TransactionAmt'],, axis=1, inplace=True)
+best_params = {'num_leaves': 302,
+                 'max_depth': 157,
+                 'subsample_for_bin': 290858,
+                 'min_child_samples': 79,
+                 'reg_alpha': 0.9919573524807885,
+                 'colsample_bytree': 0.5653288564015742,
+                 'learning_rate': 0.028565794309535042}
+mod = LGBMClassifier(metric='auc',
+                     boosting_type='gbdt')
+mod.set_params(**best_params)
+rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
+rfe.fit(X_train, y_train)
+
+X_train = rfe.transform(X_train)
+X_test = rfe.transform(X_test)
 
 # %%
 model = LGBMClassifier(metric='auc',
