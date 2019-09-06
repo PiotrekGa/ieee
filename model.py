@@ -35,6 +35,8 @@ from codes.fe_categorical import pairs, wtf
 from codes.prepro import prepro
 from codes.fe_users import users_stats
 
+from sklearn.feature_selection import RFECV
+
 # %%
 DATA_PATH = '../input/'
 SEARCH_PARAMS = True
@@ -88,13 +90,52 @@ X_train, X_test = prepro(X_train, X_test)
 X_train = reduce_mem_usage(X_train)
 X_test = reduce_mem_usage(X_test)
 
+# %%
+# columns = list(set(
+#     ['dist1', 'dist2'] \
+# + ['C{}'.format(i) for i in range(1,15)] \
+# + ['D{}'.format(i) for i in range(1,16)] \
+# + ['V' + str(i) for i in range(1,340)] \
+# + ['id_' + str(i).zfill(2) for i in range(1, 12)]))
+
+# for col in columns:
+#     if col in X_train.columns:
+#         X_train[col + '_' + 'trx'] = X_train.TransactionAmt * X_train[col]
+#         X_test[col + '_' + 'trx'] = X_test.TransactionAmt * X_test[col]
+
 # %% [markdown]
 # ### Model and training
+
+# %%
+X_train[X_train == np.inf] = -1
+X_train[X_train == -np.inf] = -1
+X_test[X_test == np.inf] = -1
+X_test[X_test == -np.inf] = -1
+
+# %%
+# best_params = {'num_leaves': 302,
+#                  'max_depth': 157,
+#                  'subsample_for_bin': 290858,
+#                  'min_child_samples': 79,
+#                  'reg_alpha': 0.9919573524807885,
+#                  'colsample_bytree': 0.5653288564015742,
+#                  'learning_rate': 0.028565794309535042}
+# mod = LGBMClassifier(metric='auc',
+#                      boosting_type='gbdt')
+# mod.set_params(**best_params)
+# rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
+# rfe.fit(X_train, y_train)
+
+# X_train = rfe.transform(X_train)
+# X_test = rfe.transform(X_test)
 
 # %%
 model = LGBMClassifier(metric='auc',
                        n_estimators=1000,
                        boosting_type='gbdt')
+
+# %%
+SEARCH_PARAMS = False
 
 # %%
 prun = PrunedCV(N_FOLD, 0.02, minimize=False)
@@ -136,16 +177,13 @@ def objective(trial):
                                 random_state=42)
 
 # %%
-SEARCH_PARAMS = False
-
-# %%
 if SEARCH_PARAMS:
     if os.path.isfile('study.pkl'):
         study = joblib.load('study.pkl')
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60*60*1)
+    study.optimize(objective, timeout=60*60*6)
     joblib.dump(study, 'study.pkl')
     best_params = study.best_params
     
@@ -160,10 +198,6 @@ else:
                  'learning_rate': 0.028565794309535042}
 
 # %%
-model = LGBMClassifier(metric='auc',
-                       n_estimators=1000,
-                       boosting_type='gbdt')
-
 model.set_params(**best_params)
 
 cross_val_score_auc(model,
@@ -176,9 +210,6 @@ cross_val_score_auc(model,
                     predict=True,
                     X_test=X_test,
                     submission=sample_submission)
-
-# %%
-model.get_params()
 
 # %%
 # ROC accuracy: 0.9751879082829373, Train: 0.9999352358261676
