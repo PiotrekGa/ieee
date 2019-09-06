@@ -103,8 +103,19 @@ def cross_val_score_auc(model,
     model_scores = []
     for train_index, valid_index in tqdm_notebook(folds.split(X_train, y_train),
                                                   total=n_fold):
-        X_train_, X_valid = X_train.iloc[train_index], X_train.iloc[valid_index]
-        y_train_, y_valid = y_train.iloc[train_index], y_train.iloc[valid_index]
+
+        if isinstance(X_train, np.ndarray):
+            X_train_ = X_train[train_index]
+            X_valid = X_train[valid_index]
+        else:
+            X_train_ = X_train.iloc[train_index, :]
+            X_valid = X_train.iloc[valid_index, :]
+        if isinstance(y_train, np.ndarray):
+            y_train_ = y_train[train_index]
+            y_valid = y_train[valid_index]
+        else:
+            y_train_ = y_train.iloc[train_index]
+            y_valid = y_train.iloc[valid_index]
 
         model.fit(X_train_, y_train_)
 
