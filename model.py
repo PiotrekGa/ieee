@@ -132,8 +132,8 @@ X_test[X_test == -np.inf] = -1
 # X_test = rfe.transform(X_test)
 
 # %%
-X_train.drop('TransactionDT', axis=1, inplace=True)
-X_test.drop('TransactionDT', axis=1, inplace=True)
+X_train.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
+X_test.drop(['TransactionDT', 'TransactionAmt'],, axis=1, inplace=True)
 
 # %%
 model = LGBMClassifier(metric='auc',
@@ -218,14 +218,16 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9750555115474047, Train: 0.9999886512564585
-# ROC accuracy: 0.9785439571047838, Train: 0.999984997638542
-# ROC accuracy: 0.9771678049682662, Train: 0.9999792164501086
-# ROC accuracy: 0.9774585060473232, Train: 0.9999807818743672
-# ROC accuracy: 0.9757612669630091, Train: 0.9999815930376637
-# ROC accuracy: 0.9763278313758115, Train: 0.999986780272101
-# ROC accuracy: 0.9776690132104133, Train: 0.9999789600435759
-# ROC accuracy: 0.9770905326434537, Train: 0.9999807259658091
+# ROC accuracy: 0.9752166854560683, Train: 0.9999880028138726
+# ROC accuracy: 0.978549489713329, Train: 0.9999846402519508
+# ROC accuracy: 0.9775330875670358, Train: 0.9999857411401932
+# ROC accuracy: 0.9779064734264544, Train: 0.9999820012259492
+# ROC accuracy: 0.9759618973923397, Train: 0.9999879506811296
+# ROC accuracy: 0.9760439850075724, Train: 0.999982252164232
+# ROC accuracy: 0.9777317260455965, Train: 0.9999817054370517
+# ROC accuracy: 0.9770691545023485, Train: 0.9999847023569826
 
 
-# 0.9768843029825582
+# 0.9770015623888431
+
+# %%
