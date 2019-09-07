@@ -101,10 +101,6 @@ X_test[X_test == np.inf] = -1
 X_test[X_test == -np.inf] = -1
 
 # %%
-X_train.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
-X_test.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
-
-# %%
 if SEARCH_FEATURES:
     best_params = {'num_leaves': 302,
                  'max_depth': 157,
