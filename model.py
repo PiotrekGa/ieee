@@ -137,7 +137,7 @@ model = LGBMClassifier(metric='auc',
                        boosting_type='gbdt')
 
 # %%
-SEARCH_PARAMS = False
+SEARCH_PARAMS = True
 
 # %%
 prun = PrunedCV(N_FOLD, 0.02, minimize=False)
@@ -185,7 +185,7 @@ if SEARCH_PARAMS:
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60*60*6)
+    study.optimize(objective, timeout=60*60*12)
     joblib.dump(study, 'study.pkl')
     best_params = study.best_params
     
