@@ -39,7 +39,8 @@ from sklearn.feature_selection import RFECV
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = True
+SEARCH_PARAMS = False
+SEARCH_FEATURES = False
 N_FOLD = 8
 
 
@@ -90,17 +91,6 @@ X_train, X_test = prepro(X_train, X_test)
 X_train = reduce_mem_usage(X_train)
 X_test = reduce_mem_usage(X_test)
 
-# %%
-# columns = list(set(
-# ['C{}'.format(i) for i in range(1,15)] \
-# + ['D{}'.format(i) for i in range(1,16)] \
-# + ['V' + str(i) for i in range(1,340)]))
-
-# for col in columns:
-#     if col in X_train.columns:
-#         X_train[col + '_' + 'trx'] = X_train.TransactionAmt * X_train[col]
-#         X_test[col + '_' + 'trx'] = X_test.TransactionAmt * X_test[col]
-
 # %% [markdown]
 # ### Model and training
 
@@ -115,21 +105,30 @@ X_train.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
 X_test.drop(['TransactionDT', 'TransactionAmt'], axis=1, inplace=True)
 
 # %%
-best_params = {'num_leaves': 302,
+if SEARCH_FEATURES:
+    best_params = {'num_leaves': 302,
                  'max_depth': 157,
                  'subsample_for_bin': 290858,
                  'min_child_samples': 79,
                  'reg_alpha': 0.9919573524807885,
                  'colsample_bytree': 0.5653288564015742,
                  'learning_rate': 0.028565794309535042}
-mod = LGBMClassifier(metric='auc',
+    mod = LGBMClassifier(metric='auc',
                      boosting_type='gbdt')
-mod.set_params(**best_params)
-rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
-rfe.fit(X_train, y_train)
+    mod.set_params(**best_params)
+    rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
+    rfe.fit(X_train, y_train)
 
-X_train = rfe.transform(X_train)
-X_test = rfe.transform(X_test)
+    columns = list(X_test.columns[rfe.get_support()])
+    joblib.dump(columns, 'columns.pkl')
+
+    X_train = X_train.loc[:,columns]
+    X_test = X_test.loc[:,columns]
+else:
+    columns = joblib.load('columns.pkl')
+    columns.append('TransactionAmt')
+    X_train = X_train.loc[:,columns]
+    X_test = X_test.loc[:,columns]
 
 # %%
 model = LGBMClassifier(metric='auc',
@@ -137,7 +136,6 @@ model = LGBMClassifier(metric='auc',
                        boosting_type='gbdt')
 
 # %%
-SEARCH_PARAMS = True
 
 # %%
 prun = PrunedCV(N_FOLD, 0.02, minimize=False)
@@ -214,16 +212,16 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9752166854560683, Train: 0.9999880028138726
-# ROC accuracy: 0.978549489713329, Train: 0.9999846402519508
-# ROC accuracy: 0.9775330875670358, Train: 0.9999857411401932
-# ROC accuracy: 0.9779064734264544, Train: 0.9999820012259492
-# ROC accuracy: 0.9759618973923397, Train: 0.9999879506811296
-# ROC accuracy: 0.9760439850075724, Train: 0.999982252164232
-# ROC accuracy: 0.9777317260455965, Train: 0.9999817054370517
-# ROC accuracy: 0.9770691545023485, Train: 0.9999847023569826
+# ROC accuracy: 0.9747431963385, Train: 0.9999885797125879
+# ROC accuracy: 0.9783240331977164, Train: 0.9999843937860894
+# ROC accuracy: 0.9776021473477676, Train: 0.999985213046599
+# ROC accuracy: 0.9776277016948994, Train: 0.9999816344110959
+# ROC accuracy: 0.9763353593387132, Train: 0.9999850285854255
+# ROC accuracy: 0.975954065269458, Train: 0.9999858101613444
+# ROC accuracy: 0.9777313673449186, Train: 0.9999735340342005
+# ROC accuracy: 0.9765956112785853, Train: 0.99998214722258
 
 
-# 0.9770015623888431
+# 0.9768641852263198
 
 # %%
