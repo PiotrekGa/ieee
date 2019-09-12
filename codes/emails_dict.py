@@ -84,7 +84,6 @@ labels = {
     'notfound': 81,
     'found': 82,
     'new': 83,
-    'unknown': 84,
     'ip_proxy:transparent': 85,
     'ip_proxy:anonymous': 86,
     'ip_proxy:hidden': 87,
@@ -3597,5 +3596,6 @@ labels = {
     'fr': 3609,
     'com': 3610,
     'es': 3611,
-    'apple': 3612
+    'apple': 3612,
+    'unknown': 10000
 }
