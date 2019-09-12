@@ -35,11 +35,14 @@ from codes.fe_categorical import pairs, wtf
 from codes.prepro import prepro
 from codes.fe_users import users_stats
 
-from sklearn.feature_selection import RFECV
+from sklearn.feature_selection import RFECV, SelectFromModel
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import make_pipeline
+from sklearn.base import TransformerMixin
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = False
+SEARCH_PARAMS = True
 SEARCH_FEATURES = False
 N_FOLD = 8
 
@@ -56,7 +59,7 @@ train, test, sample_submission = import_data(DATA_PATH)
 # %%
 train, test = users_stats(train, test)
 
-train, test = drop_columns(train, test)
+# train, test = drop_columns(train, test)
 
 train, test = latest(train, test)
 
@@ -88,83 +91,90 @@ del train, test
 #fill in mean for floats
 X_train, X_test = prepro(X_train, X_test)
 
-X_train = reduce_mem_usage(X_train)
-X_test = reduce_mem_usage(X_test)
-
 # %% [markdown]
 # ### Model and training
+
+# %%
+columns = list(set(
+['C{}'.format(i) for i in range(1,15)] \
++ ['D{}'.format(i) for i in range(1,16)] \
++ ['V' + str(i) for i in range(1,340)]))
+
+for col in columns:
+    if col in X_train.columns:
+        X_train[col + '_' + 'trx'] = X_train[col] / X_train.TransactionAmt
+        X_test[col + '_' + 'trx'] = X_test[col] / X_test.TransactionAmt
+
+# %%
+X_train = reduce_mem_usage(X_train)
+X_test = reduce_mem_usage(X_test)
 
 # %%
 X_train[X_train == np.inf] = -1
 X_train[X_train == -np.inf] = -1
 X_test[X_test == np.inf] = -1
 X_test[X_test == -np.inf] = -1
+X_train[X_test.isna()] = -1
+X_test[X_test.isna()] = -1
 
 # %%
-if SEARCH_FEATURES:
-    best_params = {'num_leaves': 302,
-                 'max_depth': 157,
-                 'subsample_for_bin': 290858,
-                 'min_child_samples': 79,
-                 'reg_alpha': 0.9919573524807885,
-                 'colsample_bytree': 0.5653288564015742,
-                 'learning_rate': 0.028565794309535042}
-    mod = LGBMClassifier(metric='auc',
-                     boosting_type='gbdt')
-    mod.set_params(**best_params)
-    rfe = RFECV(mod, step=25, min_features_to_select=150, cv=4, scoring='roc_auc', verbose=1)
-    rfe.fit(X_train, y_train)
-
-    columns = list(X_test.columns[rfe.get_support()])
-    joblib.dump(columns, 'columns.pkl')
-
-    X_train = X_train.loc[:,columns]
-    X_test = X_test.loc[:,columns]
-else:
-    columns = joblib.load('columns.pkl')
-    columns.append('TransactionAmt')
-    X_train = X_train.loc[:,columns]
-    X_test = X_test.loc[:,columns]
+X_test.drop(['TransactionDT'], axis=1, inplace=True)
+X_train.drop(['TransactionDT'], axis=1, inplace=True)
 
 # %%
-model = LGBMClassifier(metric='auc',
-                       n_estimators=1000,
-                       boosting_type='gbdt')
+sfm = SelectFromModel(LGBMClassifier(metric='auc'), threshold=0.5)
+sfm.fit(X_train, y_train)
+
+
+print(X_train.shape[1])
+columns = list(X_train.columns[sfm.get_support()])
+print(len(columns))
+X_train = X_train.loc[:,columns]
+X_test = X_test.loc[:,columns]
+
 
 # %%
+class Counter(TransformerMixin):
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        print(X.shape[1])
+        return X
+
 
 # %%
-prun = PrunedCV(N_FOLD, 0.02, minimize=False)
+model = make_pipeline(
+    SelectFromModel(LGBMClassifier(metric='auc')),
+#     Counter(),
+    LGBMClassifier(metric='auc',
+                   n_estimators=1000)
+)
+
+# %%
+prun = PrunedCV(N_FOLD, 0.03, minimize=False)
 
 
 # %%
 def objective(trial):
     
     joblib.dump(study, 'study.pkl') 
+
     
     params = {
-        'num_leaves': trial.suggest_int('num_leaves', 10, 1500), 
-        'max_depth': trial.suggest_int('max_depth', 10, 1500), 
-        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 10, 3000000), 
-        'min_child_samples': trial.suggest_int('min_child_samples', 2, 100000), 
-        'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00000000001, 10.0),
-        'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
-        'learning_rate': trial.suggest_loguniform('learning_rate', 0.000001, 10.0)  
+        'selectfrommodel__threshold': trial.suggest_int('selectfrommodel__threshold', 1, 100),
+        'lgbmclassifier__num_leaves': trial.suggest_int('lgbmclassifier__num_leaves', 10, 1500), 
+        'lgbmclassifier__subsample_for_bin': trial.suggest_int('lgbmclassifier__subsample_for_bin', 10, 3000000), 
+        'lgbmclassifier__min_child_samples': trial.suggest_int('lgbmclassifier__min_child_samples', 2, 100000), 
+        'lgbmclassifier__reg_alpha': trial.suggest_loguniform('lgbmclassifier__reg_alpha', 0.00000000001, 10.0),
+        'lgbmclassifier__colsample_bytree': trial.suggest_loguniform('lgbmclassifier__colsample_bytree', 0.0001, 1.0),
+        'lgbmclassifier__learning_rate': trial.suggest_loguniform('lgbmclassifier__learning_rate', 0.000001, 10.0)
     }
     
-#     params = {
-#         'num_leaves': trial.suggest_int('num_leaves', 300, 310), 
-#         'max_depth': trial.suggest_int('max_depth', 150, 160), 
-#         'subsample_for_bin': trial.suggest_int('subsample_for_bin', 290000, 291000), 
-#         'min_child_samples': trial.suggest_int('min_child_samples', 75, 82), 
-#         'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.990, 0.993),
-#         'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.55, 0.58),
-#         'learning_rate': trial.suggest_loguniform('learning_rate', 0.02, 0.03)  
-#     }
-    
+    print(params)
     
     model.set_params(**params)
-
     return prun.cross_val_score(model, 
                                 X_train, 
                                 y_train, 
@@ -179,19 +189,21 @@ if SEARCH_PARAMS:
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60*60*12)
+    study.optimize(objective, timeout=60 * 60 * 22)
     joblib.dump(study, 'study.pkl')
     best_params = study.best_params
-    
+
 else:
-    
-    best_params = {'num_leaves': 302,
-                 'max_depth': 157,
-                 'subsample_for_bin': 290858,
-                 'min_child_samples': 79,
-                 'reg_alpha': 0.9919573524807885,
-                 'colsample_bytree': 0.5653288564015742,
-                 'learning_rate': 0.028565794309535042}
+
+    best_params = {
+        'selectfrommodel__threshold': 11,
+        'lgbmclassifier__num_leaves': 330,
+        'lgbmclassifier__subsample_for_bin': 2077193,
+        'lgbmclassifier__min_child_samples': 2227,
+        'lgbmclassifier__reg_alpha': 0.16758905622425835,
+        'lgbmclassifier__colsample_bytree': 0.49030006727392056,
+        'lgbmclassifier__learning_rate': 0.07916040470631734
+    }
 
 # %%
 model.set_params(**best_params)
@@ -208,16 +220,14 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9747431963385, Train: 0.9999885797125879
-# ROC accuracy: 0.9783240331977164, Train: 0.9999843937860894
-# ROC accuracy: 0.9776021473477676, Train: 0.999985213046599
-# ROC accuracy: 0.9776277016948994, Train: 0.9999816344110959
-# ROC accuracy: 0.9763353593387132, Train: 0.9999850285854255
-# ROC accuracy: 0.975954065269458, Train: 0.9999858101613444
-# ROC accuracy: 0.9777313673449186, Train: 0.9999735340342005
-# ROC accuracy: 0.9765956112785853, Train: 0.99998214722258
+# ROC accuracy: 0.9707565062294428, Train: 0.9999416292415686
+# ROC accuracy: 0.9758652343514882, Train: 0.9998818960438143
+# ROC accuracy: 0.9747893539459415, Train: 0.9999033992474002
+# ROC accuracy: 0.9741729952670382, Train: 0.999944229888998
+# ROC accuracy: 0.9735064735460197, Train: 0.9999515715657177
+# ROC accuracy: 0.9728703535857148, Train: 0.9999501665218518
+# ROC accuracy: 0.9746020273044912, Train: 0.9999374155994768
+# ROC accuracy: 0.973164729538134, Train: 0.9999402925194638
 
 
-# 0.9768641852263198
-
-# %%
+# 0.9737159592210338
