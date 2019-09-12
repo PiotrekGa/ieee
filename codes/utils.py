@@ -143,3 +143,15 @@ def cross_val_score_auc(model,
 
     print('')
     return score
+
+
+def fix_dtypes(train, test):
+
+    cols_to_object = ['card1', 'card2', 'card3', 'card4', 'card5', 'card6', 'addr1', 'addr2'] + \
+        ['id_' + str(i).zfill(2) for i in range(12, 39)]
+
+    for col in cols_to_object:
+        train[col] = train[col].astype('object')
+        test[col] = test[col].astype('object')
+
+    return train, test

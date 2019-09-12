@@ -25,13 +25,13 @@ from lightgbm import LGBMClassifier
 import optuna
 from prunedcv import PrunedCV
 
-from codes.utils import import_data, drop_columns, cross_val_score_auc, reduce_mem_usage
+from codes.utils import import_data, drop_columns, cross_val_score_auc, reduce_mem_usage, fix_dtypes
 from codes.fe_browser import latest
 from codes.fe_emails import proton, mappings, labeling
 from codes.fe_cards import stats
 from codes.fe_date import dates
 from codes.fe_relatives import divisions
-from codes.fe_categorical import pairs, wtf
+from codes.fe_categorical import pairs, wtf, cat_limit
 from codes.prepro import prepro
 from codes.fe_users import users_stats
 
@@ -57,9 +57,9 @@ train, test, sample_submission = import_data(DATA_PATH)
 # drop columns, count encoding, aggregation, fillna
 
 # %%
-train, test = users_stats(train, test)
+train, test = fix_dtypes(train, test)
 
-# train, test = drop_columns(train, test)
+train, test = users_stats(train, test)
 
 train, test = latest(train, test)
 
@@ -69,7 +69,6 @@ train['nulls1'] = train.isna().sum(axis=1)
 test['nulls1'] = test.isna().sum(axis=1)
 
 train, test = mappings(train, test)
-train, test = labeling(train, test)
 
 train, test = stats(train, test)
 
@@ -78,10 +77,32 @@ train, test = divisions(train, test)
 train, test = dates(train, test)
 
 train, test = pairs(train, test)
-train, test = wtf(train, test)
+
+cat_list = list(train.dtypes[train.dtypes == 'object'].index)
+cats_to_list = []
+for feat in cat_list:
+    train, test = cat_limit(train, test, feat)
+    cats_to_list.extend(list(train[feat].unique()))
+    
+cats_to_list = list(set(cats_to_list))
+cats_to_list.remove('unknown')
+
+cats_to_dict = {}
+cats_to_dict['unknown'] = -1
+cnt = 1 
+for feat in cats_to_list:
+    cats_to_dict[feat] = cnt
+    cnt += 1
+    
+for feat in cat_list:
+    train[feat] = train[feat].map(cats_to_dict)
+    test[feat] = test[feat].map(cats_to_dict)
+    train.loc[train.loc[:, feat] < 0, feat] = np.random.rand((train.loc[:, feat] < 0).sum()) - 1
+    test.loc[test.loc[:, feat] < 0, feat] = np.random.rand((test.loc[:, feat] < 0).sum()) - 1
+
+# train, test = wtf(train, test)
 
 y_train = train['isFraud'].copy()
-
 
 X_train = train.drop('isFraud', axis=1)
 X_test = test.copy()
@@ -220,14 +241,14 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9707565062294428, Train: 0.9999416292415686
-# ROC accuracy: 0.9758652343514882, Train: 0.9998818960438143
-# ROC accuracy: 0.9747893539459415, Train: 0.9999033992474002
-# ROC accuracy: 0.9741729952670382, Train: 0.999944229888998
-# ROC accuracy: 0.9735064735460197, Train: 0.9999515715657177
-# ROC accuracy: 0.9728703535857148, Train: 0.9999501665218518
-# ROC accuracy: 0.9746020273044912, Train: 0.9999374155994768
-# ROC accuracy: 0.973164729538134, Train: 0.9999402925194638
+# ROC accuracy: 0.9720145659778652, Train: 0.9999286851251716
+# ROC accuracy: 0.9751973430652895, Train: 0.9999328083814578
+# ROC accuracy: 0.9760593919549079, Train: 0.9998439324257781
+# ROC accuracy: 0.9759738566311452, Train: 0.9999420044309371
+# ROC accuracy: 0.972072614889331, Train: 0.9999141682082874
+# ROC accuracy: 0.9726377525006845, Train: 0.9999124343601277
+# ROC accuracy: 0.9749191757697562, Train: 0.9999151580131841
+# ROC accuracy: 0.9739376183885246, Train: 0.9998564849540118
 
 
-# 0.9737159592210338
+# 0.974101539897188

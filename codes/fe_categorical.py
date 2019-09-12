@@ -3,8 +3,16 @@ import pandas as pd
 
 
 def pairs(train, test):
-    for feature in ['id_02__id_20', 'id_02__D8', 'D11__DeviceInfo', 'DeviceInfo__P_emaildomain', 'P_emaildomain__C2',
-                    'card2__dist1', 'card1__card5', 'card2__id_20', 'card5__P_emaildomain', 'addr1__card1']:
+    for feature in ['id_02__id_20',
+                    'id_02__D8',
+                    'D11__DeviceInfo',
+                    'DeviceInfo__P_emaildomain',
+                    'P_emaildomain__C2',
+                    'card2__dist1',
+                    'card1__card5',
+                    'card2__id_20',
+                    'card5__P_emaildomain',
+                    'addr1__card1']:
         f1, f2 = feature.split('__')
         train[feature] = train[f1].astype(str) + '_' + train[f2].astype(str)
         test[feature] = test[f1].astype(str) + '_' + test[f2].astype(str)
@@ -17,6 +25,21 @@ def pairs(train, test):
     return train, test
 
 
+def cat_limit(train, test, feature, limit=0):
+
+    test_cnt = test[[feature, 'TransactionDT']].groupby(feature).count()['TransactionDT']
+    train_cnt = train[[feature, 'TransactionDT']].groupby(feature).count()['TransactionDT']
+
+    counts = pd.merge(train_cnt, test_cnt, how='inner', left_index=True, right_index=True)
+
+    limiter = list(counts[counts.iloc[:, 0] > limit].index)
+
+    test.loc[~test.loc[:, feature].isin(limiter), feature] = 'unknown'
+    train.loc[~train.loc[:, feature].isin(limiter), feature] = 'unknown'
+
+    return train, test
+
+
 def wtf(train, test):
 
     for feature in ['id_01', 'id_31', 'id_33', 'id_35']:
@@ -24,7 +47,7 @@ def wtf(train, test):
         train[feature + '_count_dist'] = train[feature].map(train[feature].value_counts(dropna=False))
         test[feature + '_count_dist'] = test[feature].map(test[feature].value_counts(dropna=False))
 
-    category_features = ["ProductCD", "P_emaildomain",
+    category_features = ["ProductCD", "P_emaildomain", #fixme
                          "R_emaildomain", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9", "DeviceType",
                          "DeviceInfo",
                          "id_12",

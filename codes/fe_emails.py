@@ -1,6 +1,3 @@
-from .emails_dict import labels
-
-
 def proton(train, test):
 
     train['P_isproton'] = (train['P_emaildomain'] == 'protonmail.com')
@@ -38,15 +35,5 @@ def mappings(train, test):
 
         train[c + '_suffix'] = train[c + '_suffix'].map(lambda x: x if str(x) not in us_emails else 'us')
         test[c + '_suffix'] = test[c + '_suffix'].map(lambda x: x if str(x) not in us_emails else 'us')
-
-    return train, test
-
-
-def labeling(train, test):
-
-    for c1, c2 in train.dtypes.reset_index().values:
-        if c2 == 'O':
-            train[c1] = train[c1].map(lambda x: labels[str(x).lower()])
-            test[c1] = test[c1].map(lambda x: labels[str(x).lower()])
 
     return train, test
