@@ -42,7 +42,7 @@ from sklearn.base import TransformerMixin
 
 # %%
 DATA_PATH = '../input/'
-SEARCH_PARAMS = True
+SEARCH_PARAMS = False
 SEARCH_FEATURES = False
 N_FOLD = 8
 
