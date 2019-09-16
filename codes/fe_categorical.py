@@ -1,28 +1,47 @@
-from sklearn.preprocessing import LabelEncoder
 import pandas as pd
+import numpy as np
 
 
 def pairs(train, test):
     for feature in ['id_02__id_20',
                     'id_02__D8',
-                    'D11__DeviceInfo',
-                    'DeviceInfo__P_emaildomain',
+                    'D11__device_name',
+                    'device_name__P_emaildomain',
                     'P_emaildomain__C2',
                     'card2__dist1',
                     'card1__card5',
                     'card2__id_20',
+                    'card3__card5',
+                    'P_emaildomain_bin__R_emaildomain_bin',
+                    'P_emaildomain_suffix__R_emaildomain_suffix',
                     'card5__P_emaildomain',
+                    'addr1__card1',
+                    'addr2__card1',
+                    'addr1__card4',
+                    'addr1__card1',
                     'addr1__card1']:
         f1, f2 = feature.split('__')
         train[feature] = train[f1].astype(str) + '_' + train[f2].astype(str)
         test[feature] = test[f1].astype(str) + '_' + test[f2].astype(str)
 
-        le = LabelEncoder()
-        le.fit(list(train[feature].astype(str).values) + list(test[feature].astype(str).values))
-        train[feature] = le.transform(list(train[feature].astype(str).values))
-        test[feature] = le.transform(list(test[feature].astype(str).values))
-
     return train, test
+
+# def pairs(train, test):
+#     c_cols1 = list(train.select_dtypes('object').columns)
+#
+#     for col in ['P_emaildomain', 'R_emaildomain', 'id_30', 'id_31', 'DeviceInfo']:
+#         c_cols1.remove(col)
+#
+#     c_cols2 = c_cols1[1:].copy()
+#     cnt = 0
+#     for col1 in tqdm_notebook(c_cols1):
+#         for col2 in tqdm_notebook(c_cols2):
+#             train[col1 + '__concat__' + col2] = train[col1].astype('str') + '__' + train[col2].astype('str')
+#             test[col1 + '__concat__' + col2] = test[col1].astype('str') + '__' + test[col2].astype('str')
+#             cnt += 1
+#         c_cols2 = c_cols2[1:]
+#     print(cnt)
+#     return train, test
 
 
 def cat_limit(train, test, feature, limit=0):
@@ -61,5 +80,32 @@ def wtf(train, test):
             pd.concat([train[feature], test[feature]], ignore_index=True).value_counts(dropna=False))
         test[feature + '_count_full'] = test[feature].map(
             pd.concat([train[feature], test[feature]], ignore_index=True).value_counts(dropna=False))
+
+    return train, test
+
+
+def encode_cat(train, test):
+    cat_list = list(train.dtypes[train.dtypes == 'object'].index)
+    cats_to_list = []
+    for feat in cat_list:
+        train, test = cat_limit(train, test, feat)
+        cats_to_list.extend(list(train[feat].unique()))
+
+    cats_to_list = list(set(cats_to_list))
+    cats_to_list.remove('unknown')
+
+    cats_to_dict = {}
+    cats_to_dict['unknown'] = -999
+    cnt = 1
+    for feat in cats_to_list:
+        cats_to_dict[feat] = cnt
+        cnt += 1
+
+    for feat in cat_list:
+        train[feat] = train[feat].map(cats_to_dict)
+        test[feat] = test[feat].map(cats_to_dict)
+        # np.random.seed(seed=42)
+        # train.loc[train.loc[:, feat] < 0, feat] = np.random.rand((train.loc[:, feat] < 0).sum()) - 1
+        # test.loc[test.loc[:, feat] < 0, feat] = np.random.rand((test.loc[:, feat] < 0).sum()) - 1
 
     return train, test
