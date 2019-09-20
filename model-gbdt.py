@@ -25,19 +25,7 @@ from lightgbm import LGBMClassifier
 import optuna
 from prunedcv import PrunedCV
 
-from codes.utils import import_data, cross_val_score_auc, reduce_mem_usage, fix_dtypes
-from codes.fe_browser import latest
-from codes.fe_emails import proton, mappings
-from codes.fe_cards import stats
-from codes.fe_date import dates
-from codes.fe_relatives import divisions, divisions_float
-from codes.fe_categorical import pairs, wtf, cat_limit, encode_cat
-from codes.prepro import prepro
-from codes.fe_users import users_stats
-
-from sklearn.feature_selection import SelectFromModel
-from sklearn.pipeline import make_pipeline
-from sklearn.base import TransformerMixin
+from codes.utils import cross_val_score_auc
 
 # %%
 SEARCH_PARAMS = False
@@ -52,28 +40,15 @@ X_train = joblib.load('features_train.pkl')
 X_test = joblib.load('features_test.pkl')
 sample_submission = pd.read_csv('../input/sample_submission.csv', index_col=0)
 
-
 # %% [markdown]
 # ### Model and training
 
 # %%
-class Counter(TransformerMixin):
-    
-    def fit(self, X, y=None):
-        return self
-    
-    def transform(self, X):
-        print(X.shape[1])
-        return X
-
+model = LGBMClassifier(metric='auc',
+                       boosting_type=BOOSTING)
 
 # %%
-model = LGBMClassifier(metric='auc', 
-                   boosting_type=BOOSTING)
-
-
-# %%
-prun = PrunedCV(N_FOLD, 0.02, minimize=False)
+prun = PrunedCV(N_FOLD, 0.005, splits_to_start_pruning=3, minimize=False)
 
 
 # %%
@@ -83,14 +58,17 @@ def objective(trial):
 
     
     params = {
-        'selectfrommodel__threshold': trial.suggest_int('selectfrommodel__threshold', 1, 200),
-        'lgbmclassifier__num_leaves': trial.suggest_int('lgbmclassifier__num_leaves', 10, 1500), 
-        'lgbmclassifier__subsample_for_bin': trial.suggest_int('lgbmclassifier__subsample_for_bin', 1000, 5000000), 
-        'lgbmclassifier__min_child_samples': trial.suggest_int('lgbmclassifier__min_child_samples', 200, 100000), 
-        'lgbmclassifier__reg_alpha': trial.suggest_loguniform('lgbmclassifier__reg_alpha', 0.00000000001, 10.0),
-        'lgbmclassifier__colsample_bytree': trial.suggest_loguniform('lgbmclassifier__colsample_bytree', 0.0001, 1.0),
-        'lgbmclassifier__learning_rate': trial.suggest_loguniform('lgbmclassifier__learning_rate', 0.00001, 2.0)
+        'num_leaves': trial.suggest_int('num_leaves', 10, 1500), 
+        'max_depth': trial.suggest_int('max_depth', 10, 1000), 
+        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 5000000), 
+        'min_child_samples': trial.suggest_int('min_child_samples', 200, 100000), 
+        'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00000000001, 10.0),
+        'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
+        'learning_rate': trial.suggest_loguniform('learning_rate', 0.00001, 2.0),
+        'n_estimators': trial.suggest_int('n_estimators', 1000, 2000)
     }
+    
+    
     
     print(params)
     
@@ -109,24 +87,25 @@ if SEARCH_PARAMS:
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60 * 60 * 13)
+    study.optimize(objective, timeout=60 * 60 * 15)
     joblib.dump(study, 'study_{}.pkl'.format(BOOSTING))
     best_params = study.best_params
 
 else:
 
     best_params = {'num_leaves': 302,
-                 'max_depth': 157,
-                 'n_estimators': 1200,
-                 'subsample_for_bin': 290858,
-                 'min_child_samples': 79,
-                 'reg_alpha': 1.0919573524807885,
-                 'colsample_bytree': 0.5653288564015742,
-                 'learning_rate': 0.028565794309535042}
+ 'max_depth': 157,
+ 'n_estimators': 1200,
+ 'subsample_for_bin': 290858,
+ 'min_child_samples': 79,
+ 'reg_alpha': 0.9919573524807885,
+ 'colsample_bytree': 0.5653288564015742,
+ 'learning_rate': 0.028565794309535042}
 
 # %%
 model.set_params(**best_params)
 
+# %%
 cross_val_score_auc(model,
                     X_train,
                     y_train,
@@ -139,16 +118,13 @@ cross_val_score_auc(model,
                     submission=sample_submission)
 
 # %%
-# ROC accuracy: 0.9668942182909179, Train: 0.9999901167411397
-# ROC accuracy: 0.9720552290202384, Train: 0.9999891233350843
-# ROC accuracy: 0.9710663975253696, Train: 0.9999918268060299
-# ROC accuracy: 0.9703005116766165, Train: 0.9999910116495871
-# ROC accuracy: 0.9677524410936837, Train: 0.9999883123936292
-# ROC accuracy: 0.970521434805755, Train: 0.9999753389326952
-# ROC accuracy: 0.9709850608667766, Train: 0.9999787304381259
-# ROC accuracy: 0.9708245135815027, Train: 0.9999796449943333
+ROC accuracy: 0.9760007886956308, Train: 0.9999998170917167
+ROC accuracy: 0.978816647314765, Train: 0.9999998770998315
+ROC accuracy: 0.9776080114780432, Train: 0.999999836281003
+ROC accuracy: 0.9778474951671876, Train: 0.9999996537054818
+ROC accuracy: 0.9758758593511995, Train: 0.9999998637893439
+ROC accuracy: 0.9769108286745452, Train: 0.9999998926289491
+ROC accuracy: 0.9785865478050013, Train: 0.9999998615712069
+ROC accuracy: 0.9774573102118551, Train: 0.9999998197641444
 
-
-# 0.9700499758576075
-
-# %%
+# 0.9773879360872784

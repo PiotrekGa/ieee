@@ -7,6 +7,7 @@ from sklearn.model_selection import StratifiedKFold, KFold
 from sklearn.metrics import roc_auc_score
 from datetime import datetime
 from tqdm import tqdm_notebook
+from sklearn.base import TransformerMixin
 
 
 def reduce_mem_usage(df, verbose=True):
@@ -148,3 +149,83 @@ def fix_dtypes(train, test):
         test[col] = test[col].astype('object')
 
     return train, test
+
+
+class TargetEncoder(TransformerMixin):
+
+    def __init__(self, target_name):
+        self.target_name = target_name
+        self.encoders_dict = dict()
+
+    def fit(self, x, y):
+
+        x = pd.concat([x, y], axis=1)
+        for col in x.columns[:-1]:
+            gr = x.groupby(col).mean()[self.target_name]
+            self.encoders_dict[col] = gr
+
+        x.drop(self.target_name, axis=1, inplace=True)
+        return self
+
+    def transform(self, x):
+
+        for col in self.encoders_dict.keys():
+            x[col] = x[col].map(self.encoders_dict[col])
+            mean_to_impute = x[col].mean()
+            x[col].fillna(mean_to_impute, inplace=True)
+
+        return x
+
+
+class Selector(TransformerMixin):
+
+    def __init__(self, columns=None, return_vector=True):
+        self.columns = columns
+        self.return_vector = return_vector
+
+    def fit(self, x, y=None):
+        return self
+
+    def transform(self, x):
+
+        if len(self.columns) == 1:
+            if self.return_vector:
+                return x[self.columns[0]]
+            else:
+                return pd.DataFrame({self.columns[0]: x[self.columns[0]]})
+        else:
+            return x.loc[:, self.columns]
+
+
+class MakeNonUnique(TransformerMixin):
+
+    def __init__(self):
+        self.to_drop = []
+
+    def fit(self, x, y=None):
+        self.to_drop = list(pd.DataFrame(x).columns[pd.DataFrame(x).nunique() == 1])
+        return self
+
+    def transform(self, x):
+        return pd.DataFrame(x).drop(self.to_drop, axis=1)
+
+
+class FrequencyEncoder(TransformerMixin):
+
+    def __init__(self):
+        self.encoders_dict = dict()
+
+    def fit(self, x, y=None):
+
+        for col in x.columns[:-1]:
+            gr = x.groupby(col).count().iloc[:,0]
+            self.encoders_dict[col] = gr
+        return self
+
+    def transform(self, x):
+
+        for col in self.encoders_dict.keys():
+            x[col] = x[col].map(self.encoders_dict[col])
+            x[col].fillna(0, inplace=True)
+
+        return x
