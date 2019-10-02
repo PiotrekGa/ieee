@@ -15,24 +15,21 @@
 
 # %%
 import os
-import gc
 import numpy as np
 import pandas as pd
 import joblib
 from datetime import datetime
 from datetime import timedelta
 
-from lightgbm import LGBMClassifier
-from sklearn.feature_selection import SelectFromModel
-from sklearn.pipeline import make_pipeline
+from xgboost import XGBClassifier
 import optuna
 
-from codes.utils import cross_val_score_auc, PrunedCV, seed_everything, Reporter
+from codes.utils import cross_val_score_auc, PrunedCV, seed_everything
 
 # %%
 SEARCH_PARAMS = False
-N_FOLD = 6
-BOOSTING = 'gbdt'
+N_FOLD = 8
+BOOSTING = 'xgb'
 RANDOM_STATE = 42
 START_DATE = datetime.strptime('2017-11-30', '%Y-%m-%d')
 seed_everything(RANDOM_STATE)
@@ -62,12 +59,19 @@ group_split_sampled = X_train_sampled.DT_M
 X_train_sampled.drop('DT_M', axis=1, inplace=True)
 X_train.drop('DT_M', axis=1, inplace=True)
 
+# %%
+study = joblib.load('study_{}.pkl'.format(BOOSTING))
+
 # %% [markdown]
 # ### Model and training
 
 # %%
-model = LGBMClassifier(metric='auc', boosting_type=BOOSTING)
-prun = PrunedCV(N_FOLD, 0.02, splits_to_start_pruning=3, minimize=False)
+del X_train_sampled, y_sampled, group_split_sampled, group_split
+
+# %%
+seed_everything(RANDOM_STATE)
+model = XGBClassifier(n_jobs=-1, random_state=RANDOM_STATE)
+prun = PrunedCV(N_FOLD, 0.01, splits_to_start_pruning=3, minimize=False)
 
 
 # %%
@@ -77,24 +81,24 @@ def objective(trial):
 
     
     params = {
-        'num_leaves': trial.suggest_int('num_leaves', 10, 1500), 
-        'max_depth': trial.suggest_int('max_depth', 10, 1000), 
-        'subsample_for_bin': trial.suggest_int('subsample_for_bin', 1000, 5000000), 
-        'min_child_samples': trial.suggest_int('min_child_samples', 200, 100000), 
-        'reg_alpha': trial.suggest_loguniform('reg_alpha', 0.00000000001, 10.0),
-        'colsample_bytree': trial.suggest_loguniform('colsample_bytree', 0.0001, 1.0),
-        'learning_rate': trial.suggest_loguniform('learning_rate', 0.00001, 2.0),
+        'max_depth': trial.suggest_int('max_depth', 3, 1000), 
+        'learning_rate': trial.suggest_loguniform('learning_rate', 0.01, 0.5),
+        'min_child_weight': trial.suggest_int('min_child_weight', 3, 500),
+        'subsample': trial.suggest_uniform('subsample', 0.01, 0.99),
         'n_estimators': trial.suggest_int('n_estimators', 500, 2000)
+        
     }
     
     model.set_params(**params)
+    print(params)
         
     return prun.cross_val_score(model, 
                                 X_train_sampled, 
                                 y_sampled, 
-                                split_type='groupkfold',
-                                groups=group_split_sampled,
+                                split_type='stratifiedkfold',
+                                shuffle=True,
                                 metric='auc',
+                                verbose=1,
                                 random_state=RANDOM_STATE)
 
 # %%
@@ -104,36 +108,34 @@ if SEARCH_PARAMS:
     else:
         study = optuna.create_study()
 
-    study.optimize(objective, timeout=60 * 60 * 21)
+    study.optimize(objective, timeout=60 * 60 * 24)
     joblib.dump(study, 'study_{}.pkl'.format(BOOSTING))
     best_params = study.best_params
 
 else:
 
-    best_params = {'num_leaves': 302,
-                     'max_depth': 157,
-                     'n_estimators': 1200,
-                     'subsample_for_bin': 290858,
-                     'min_child_samples': 79,
-                     'reg_alpha': 0.9919573524807885,
-                     'colsample_bytree': 0.5653288564015742,
-                     'learning_rate': 0.028565794309535042}
+    best_params = {'max_depth': 792,
+                     'learning_rate': 0.014588159840197071,
+                     'min_child_weight': 5,
+                     'subsample': 0.6824025156854334,
+                     'n_estimators': 1128}
 
 # %%
 model.set_params(**best_params)
 
 # %%
 seed_everything(RANDOM_STATE)
-cross_val_score_auc(model,
-                    X_train_sampled,
-                    y_sampled,
-                    n_fold=N_FOLD,
-                    random_state=RANDOM_STATE,
-                    predict=True,
-                    X_test=X_test,
-                    shuffle=True,
-                    split_type='stratifiedkfold',
-                    groups=group_split_sampled,
-                    submission=sample_submission)
+xx = cross_val_score_auc(model,
+                        X_train,
+                        y_train,
+                        n_fold=N_FOLD,
+                        random_state=RANDOM_STATE,
+                        predict=True,
+                        X_test=X_test,
+                        shuffle=True,
+                        split_type='stratifiedkfold',
+                        return_to_stack=True,
+                        submission=sample_submission)
 
 # %%
+joblib.dump(xx, 'xgboost.pkl')
