@@ -32,7 +32,7 @@
 
 ## Post competition discussions / kernels
 
-### Series of transactions as frauds, not a single one [link](https://www.kaggle.com/c/ieee-fraud-detection/discussion/111197#latest-640784)
+### Solution and code from 21st [link](https://www.kaggle.com/c/ieee-fraud-detection/discussion/111197#latest-640784)
  The 20+ teams don't post solutions usually. But something happened make me feel it is necessary to do this.
 I wanna say I don't know if the the shakeup is a coincidence or not. I post my track about this competition to help someone who wanna learn about this competition. People may have different opinions about whole this mess. You cound ask about the solution or code with comments. Plz just dont argue here.
 
