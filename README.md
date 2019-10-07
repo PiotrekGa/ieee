@@ -83,6 +83,9 @@ But I'll be glad to answer your questions.
 [link1](https://www.kaggle.com/c/ieee-fraud-detection/discussion/111284#latest-643198)
 [link2](https://www.kaggle.com/c/ieee-fraud-detection/discussion/111308#latest-643191)
 [bonus](https://www.kaggle.com/c/ieee-fraud-detection/discussion/111510#latest-642772)
+[FE](https://www.kaggle.com/kyakovlev/ieee-basic-fe-part-1)
+[remove features](https://www.kaggle.com/cdeotte/eda-for-columns-v-and-id)
+
 
 ### 2nd Solution
 
